@@ -20,16 +20,14 @@ SCREEN_TITLE = "Move Sprite by Angle Example"
 
 MOVEMENT_SPEED = 5
 ANGLE_SPEED = 5
-ACCELERATION_UNIT = 0.2
+ACCELERATION_UNIT = 0.1
 FRICTION = 0.995 # z intervala [0,1]
-GRIP = 0.03 # z intervala [0,1]
+GRIP = 0.04 # z intervala [0,1]
+BRAKING_POWER = 0.6
 
-MAX_SPEED = 7
+MAX_SPEED = 10
 TOL = 0.01
 TOL_ANGLE = 0.01
-
-def norm(v):
-    return (v[0]**2 + v[1]**2)**0.5
 
 class Player(arcade.Sprite):
     """ Player class """
@@ -53,10 +51,10 @@ class Player(arcade.Sprite):
 
     def update(self):
         if self.accelerating:
-            speed_temp = (self.speed + ACCELERATION_UNIT) * FRICTION
+            speed_temp = (self.speed + ACCELERATION_UNIT)
             self.speed = min(speed_temp, MAX_SPEED)
         elif self.braking:
-            speed_temp = (self.speed - ACCELERATION_UNIT) * FRICTION
+            speed_temp = (self.speed - ACCELERATION_UNIT * BRAKING_POWER) * FRICTION
             self.speed = max(speed_temp, 0)
         else:
             speed_temp = self.speed * FRICTION
@@ -71,7 +69,7 @@ class Player(arcade.Sprite):
         self.angle += self.change_angle        
 
         # Use math to find our change based on our speed and angle
-        speed_angle_temp = (1 - (1-GRIP) * self.speed / MAX_SPEED) * (self.angle - self.speed_angle)
+        speed_angle_temp = (1 - (1-GRIP) * (self.speed / MAX_SPEED)**0.3) * (self.angle - self.speed_angle)
         if abs(speed_angle_temp) > TOL_ANGLE:
             self.speed_angle += speed_angle_temp    
         #elif abs(speed_angle_temp) > TOL_ANGLE and self.change_angle == 0:
