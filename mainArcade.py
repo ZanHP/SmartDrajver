@@ -14,15 +14,22 @@ import math
 
 SPRITE_SCALING = 0.5
 
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+SCREEN_WIDTH = 1400
+SCREEN_HEIGHT = 1000
 SCREEN_TITLE = "Move Sprite by Angle Example"
 
 MOVEMENT_SPEED = 5
 ANGLE_SPEED = 5
-ACCELERATION_UNIT = 0.4
-FRICTION = 0.99
+ACCELERATION_UNIT = 0.2
+FRICTION = 0.995 # z intervala [0,1]
+GRIP = 0.03 # z intervala [0,1]
 
+MAX_SPEED = 7
+TOL = 0.01
+TOL_ANGLE = 0.01
+
+def norm(v):
+    return (v[0]**2 + v[1]**2)**0.5
 
 class Player(arcade.Sprite):
     """ Player class """
@@ -34,21 +41,69 @@ class Player(arcade.Sprite):
         super().__init__(image, scale)
 
         # Create a variable to hold our speed. 'angle' is created by the parent
+        #self.center_x;
+        #self.center_y;
+        #self.angle;
+
+        self.speed_angle = 0
         self.speed = 0
+
         self.accelerating = False
         self.braking = False
-        #self.angle = None
 
     def update(self):
+        if self.accelerating:
+            speed_temp = (self.speed + ACCELERATION_UNIT) * FRICTION
+            self.speed = min(speed_temp, MAX_SPEED)
+        elif self.braking:
+            speed_temp = (self.speed - ACCELERATION_UNIT) * FRICTION
+            self.speed = max(speed_temp, 0)
+        else:
+            speed_temp = self.speed * FRICTION
+            self.speed = speed_temp if speed_temp > TOL else 0
+
+        #print('center_x: {}, center_y: {}, v: {}, a: {}, sa: {}'.format(*list(map(lambda x : round(x,2),[self.center_x, self.center_y, self.speed, self.angle, self.speed_angle]))))
         # Convert angle in degrees to radians.
         angle_rad = math.radians(self.angle)
+        change_angle_rad = math.radians(self.change_angle)
 
         # Rotate the ship
-        self.angle += self.change_angle
+        self.angle += self.change_angle        
 
         # Use math to find our change based on our speed and angle
-        self.center_x += -self.speed * math.sin(angle_rad)
-        self.center_y += self.speed * math.cos(angle_rad)
+        speed_angle_temp = (1 - (1-GRIP) * self.speed / MAX_SPEED) * (self.angle - self.speed_angle)
+        if abs(speed_angle_temp) > TOL_ANGLE:
+            self.speed_angle += speed_angle_temp    
+        #elif abs(speed_angle_temp) > TOL_ANGLE and self.change_angle == 0:
+            #print(0)
+            #self.speed_angle = self.angle
+        #else:
+
+        #self.speed_angle = self.speed_angle + speed_angle_temp if abs(speed_angle_temp) > TOL_ANGLE and self.change_angle else self.angle
+        speed_angle_rad = math.radians(self.speed_angle)
+
+        #speed_temp = (self.speed[0] - norm(self.speed) * math.sin(angle_rad + 5*change_angle_rad))
+
+        x_temp = self.center_x + self.speed * (-math.sin(speed_angle_rad))
+        y_temp = self.center_y + self.speed * math.cos(speed_angle_rad)
+        if x_temp < 0:
+            self.center_x = 0
+        elif x_temp > SCREEN_WIDTH:
+            self.center_x = SCREEN_WIDTH
+        else:
+            self.center_x = x_temp
+        if y_temp < 0:
+            self.center_y = 0
+        elif y_temp > SCREEN_HEIGHT:
+            self.center_y = SCREEN_HEIGHT
+        else:
+            self.center_y = y_temp
+        
+        
+
+        #self.center_x += -self.speed * math.sin(angle_rad - change_angle_rad)
+        #self.center_y += self.speed * math.cos(angle_rad - change_angle_rad)
+
 
 
 class MyGame(arcade.Window):
@@ -56,7 +111,7 @@ class MyGame(arcade.Window):
     Main application class.
     """
 
-    def __init__(self, width, height, title):
+    def __init__(self, width, height, title, update_rate = 1/60):
         """
         Initializer
         """
@@ -76,6 +131,8 @@ class MyGame(arcade.Window):
 
         # Set up the player info
         self.player_sprite = None
+
+        arcade.Window.set_update_rate(self, update_rate)
 
         # Set the background color
         arcade.set_background_color(arcade.color.BLACK)
@@ -108,12 +165,7 @@ class MyGame(arcade.Window):
 
         # Call update on all sprites (The sprites don't do much in this
         # example though.)
-        if self.player_sprite.accelerating:
-            self.player_sprite.speed = (self.player_sprite.speed + ACCELERATION_UNIT) * FRICTION
-        elif self.player_sprite.braking:
-            self.player_sprite.speed = (self.player_sprite.speed - ACCELERATION_UNIT) * FRICTION
-        else:
-            self.player_sprite.speed *= FRICTION
+        
         self.player_list.update()
 
     def on_key_press(self, key, modifiers):
