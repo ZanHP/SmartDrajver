@@ -1,7 +1,11 @@
-from constants import *
-import arcade
 import os
-from player import Player
+import time
+
+import arcade
+
+from smartdriver.constants import *
+from smartdriver.player import Player
+
 
 class MyGame(arcade.Window):
     """
@@ -29,6 +33,8 @@ class MyGame(arcade.Window):
         # Set up the player info
         self.player_sprite = None
 
+        self.view_left = 0
+
         arcade.Window.set_update_rate(self, update_rate)
 
         # Set the background color
@@ -50,9 +56,11 @@ class MyGame(arcade.Window):
         """
         Render the screen.
         """
+        WHITE = (255,255,255)
 
         # This command has to happen before we start drawing
         arcade.start_render()
+        arcade.draw_line(150, 100, 3500, 100, WHITE, line_width=3)
 
         # Draw all the sprites.
         self.player_list.draw()
@@ -64,6 +72,36 @@ class MyGame(arcade.Window):
         # example though.)
         
         self.player_list.update()
+
+        
+                
+        TRACK_WIDTH = 15
+        WHITE = (255,255,255)
+
+        main_points = ((100, 100), (2000, 200))
+        
+        
+        def track_points(point):
+            
+            return ((point[0], point[1] + TRACK_WIDTH), (point[0] , point[1] - TRACK_WIDTH))
+
+        main_points = list(map(track_points, main_points))
+
+        self.view_left += 2
+        
+        arcade.set_viewport(self.view_left, SCREEN_WIDTH + self.view_left, 0, SCREEN_HEIGHT)
+        #for i, element in enumerate(main_points[:-1]):
+        #    
+        #    arcade.draw_line(element[0][0], element[0][1], main_points[i][0][0], main_points[i][0][1], WHITE)
+        #    arcade.draw_line(element[0][0], element[0][1], main_points[i][0][0], main_points[i][0][1], WHITE)
+
+        #arcade.draw_line(150, 100, 350, 100, WHITE, line_width=3)
+
+        #points = list(range(100))
+        #points = list(zip(points,points)) 
+        #arcade.draw_points(points, color=(255,255,255))
+
+
 
     def on_key_press(self, key, modifiers):
         """Called whenever a key is pressed. """

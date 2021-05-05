@@ -1,6 +1,9 @@
-from constants import *
-import arcade
 import math
+
+import arcade
+
+from smartdriver.constants import *
+
 
 class Player(arcade.Sprite):
     """ Player class """
