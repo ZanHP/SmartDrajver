@@ -1,8 +1,10 @@
-from constants import *
-import arcade
 import os
-from player import Player
 import time
+
+import arcade
+
+from smartdriver.constants import *
+from smartdriver.player import Player
 
 
 class MyGame(arcade.Window):
