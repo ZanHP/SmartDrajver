@@ -1,5 +1,4 @@
-#from enum import Enum
-#class Constants(Enum):
+UPDATE_RATE = 1/60
 SPRITE_SCALING = 0.5
 
 SCREEN_WIDTH = 1400

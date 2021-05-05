@@ -4,17 +4,14 @@ import math
 
 class Player(arcade.Sprite):
     """ Player class """
-
-    def __init__(self, image, scale):
+    
+    def __init__(self, image, scale, smart=False):
         """ Set up the player """
 
         # Call the parent init
         super().__init__(image, scale)
 
-        # Create a variable to hold our speed. 'angle' is created by the parent
-        #self.center_x;
-        #self.center_y;
-        #self.angle;
+        self.smart = smart
 
         self.speed_angle = 0
         self.speed = 0
@@ -35,8 +32,8 @@ class Player(arcade.Sprite):
 
         #print('center_x: {}, center_y: {}, v: {}, a: {}, sa: {}'.format(*list(map(lambda x : round(x,2),[self.center_x, self.center_y, self.speed, self.angle, self.speed_angle]))))
         # Convert angle in degrees to radians.
-        angle_rad = math.radians(self.angle)
-        change_angle_rad = math.radians(self.change_angle)
+        #angle_rad = math.radians(self.angle)
+        #change_angle_rad = math.radians(self.change_angle)
 
         # Rotate the ship
         self.angle += self.change_angle        
@@ -69,3 +66,28 @@ class Player(arcade.Sprite):
             self.center_y = SCREEN_HEIGHT
         else:
             self.center_y = y_temp
+
+    def on_press_key_up(self):
+        self.accelerating = True
+
+    def on_press_key_down(self):
+        self.braking = True
+
+    def on_press_key_left(self):
+        self.change_angle = ANGLE_SPEED
+
+    def on_press_key_right(self):
+        self.change_angle = -ANGLE_SPEED
+
+    def on_release_key_up(self):
+        self.accelerating = False
+
+    def on_release_key_down(self):
+        self.braking = False
+
+    def on_release_key_left(self):
+        self.change_angle = 0
+
+    def on_release_key_right(self):
+        self.change_angle = 0
+    
