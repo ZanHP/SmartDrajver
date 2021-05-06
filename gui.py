@@ -8,7 +8,7 @@ class MyGame(arcade.Window):
     Main application class.
     """
 
-    def __init__(self, width, height, title, update_rate = UPDATE_RATE):
+    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=False, show=True):
         """
         Initializer
         """
@@ -28,6 +28,8 @@ class MyGame(arcade.Window):
 
         # Set up the player info
         self.player_sprite = None
+        self.smart = smart
+        self.show = show
 
         arcade.Window.set_update_rate(self, update_rate)
 
@@ -41,9 +43,9 @@ class MyGame(arcade.Window):
         self.player_list = arcade.SpriteList()
 
         # Set up the player
-        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING)
-        self.player_sprite.center_x = SCREEN_WIDTH / 2
-        self.player_sprite.center_y = SCREEN_HEIGHT / 2
+        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.smart, self.show)
+        #self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, smart=True)
+        
         self.player_list.append(self.player_sprite)
 
     def on_draw(self):
@@ -62,35 +64,35 @@ class MyGame(arcade.Window):
 
         # Call update on all sprites (The sprites don't do much in this
         # example though.)
-        
-        self.player_list.update()
+        #print(self.player_list[0])
+        if self.player_list[0].smart:
+            self.player_list[0].next_move()
+        else:
+            self.player_list[0].update()
 
     def on_key_press(self, key, modifiers):
         """Called whenever a key is pressed. """
+        if not self.player_list[0].smart:
+            # Forward/back
+            if key == arcade.key.UP:
+                self.player_sprite.on_press_key_up()
+            elif key == arcade.key.DOWN:
+                self.player_sprite.on_press_key_down()
 
-        # Forward/back
-        if key == arcade.key.UP:
-            self.player_sprite.on_press_key_up()
-            #self.player_sprite.speed = (self.player_sprite.speed + ACCELERATION_UNIT)# * FRICTION
-            #print(round(self.player_sprite.speed,2))
-        elif key == arcade.key.DOWN:
-            self.player_sprite.on_press_key_down()
-            #self.player_sprite.speed = (self.player_sprite.speed - ACCELERATION_UNIT)# * FRICTION
-
-        # Rotate left/right
-        elif key == arcade.key.LEFT:
-            self.player_sprite.on_press_key_left()
-        elif key == arcade.key.RIGHT:
-            self.player_sprite.on_press_key_right()
+            # Rotate left/right
+            elif key == arcade.key.LEFT:
+                self.player_sprite.on_press_key_left()
+            elif key == arcade.key.RIGHT:
+                self.player_sprite.on_press_key_right()
 
     def on_key_release(self, key, modifiers):
         """Called when the user releases a key. """
-
-        if key == arcade.key.UP:
-            self.player_sprite.on_release_key_up()
-        if key == arcade.key.DOWN:
-            self.player_sprite.on_release_key_down()
-        if key == arcade.key.LEFT:
-            self.player_sprite.on_release_key_left()
-        if key == arcade.key.RIGHT:
-            self.player_sprite.on_release_key_right()           
+        if not self.player_list[0].smart:
+            if key == arcade.key.UP:
+                self.player_sprite.on_release_key_up()
+            if key == arcade.key.DOWN:
+                self.player_sprite.on_release_key_down()
+            if key == arcade.key.LEFT:
+                self.player_sprite.on_release_key_left()
+            if key == arcade.key.RIGHT:
+                self.player_sprite.on_release_key_right()           
