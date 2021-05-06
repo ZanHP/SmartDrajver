@@ -3,8 +3,8 @@ import time
 
 import arcade
 
-from smartdriver.constants import *
-from smartdriver.player import Player
+from constants import *
+from player import Player
 
 
 class MyGame(arcade.Window):
@@ -92,7 +92,7 @@ class MyGame(arcade.Window):
 
         main_points = list(map(track_points, main_points))
 
-        self.view_left += 2
+        #self.view_left += 2
         
         arcade.set_viewport(self.view_left, SCREEN_WIDTH + self.view_left, 0, SCREEN_HEIGHT)
         #for i, element in enumerate(main_points[:-1]):

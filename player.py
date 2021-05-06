@@ -2,7 +2,8 @@ import math
 
 import arcade
 
-from smartdriver.constants import *
+from constants import *
+import random
 
 
 class Player(arcade.Sprite):
@@ -133,6 +134,16 @@ class Player(arcade.Sprite):
         self.change_angle = 0
 
     def next_move(self):
-        self.on_press_key_up()
+        if not self.accelerating:
+            if random.random() < 0.5:
+                self.on_press_key_up()
+        elif random.random() < 0.1:
+            self.on_release_key_up()
+        elif random.random() < 0.5:
+            if random.random() < 0.5:
+                self.on_press_key_right()
+            else:
+                self.on_press_key_left()
+        
         self.update()
     

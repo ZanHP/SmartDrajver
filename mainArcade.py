@@ -1,6 +1,6 @@
 import arcade
-from smartdriver.constants import *
-from smartdriver.gui import MyGame
+from constants import *
+from gui import MyGame
 
 def main():
     """ Main method """
