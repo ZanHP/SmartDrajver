@@ -2,14 +2,14 @@ import math
 
 import arcade
 
-from constants import *
+from smartdriver.constants import *
 import random
 
 
 class Player(arcade.Sprite):
     """ Player class """
     
-    def __init__(self, image, scale, smart=False, show=True):
+    def __init__(self, image, scale, smart=False, show=True, verbose=False):
         """ Set up the player """
 
         # Call the parent init
@@ -21,6 +21,7 @@ class Player(arcade.Sprite):
         self.center_y = SCREEN_HEIGHT / 2
         self.center_x_noShow = self.center_x
         self.center_y_noShow = self.center_y
+        self.verbose = False
 
         self.speed_angle = 0
         self.speed = 0
@@ -43,7 +44,8 @@ class Player(arcade.Sprite):
             print('x: {}, y: {}, v: {}, a: {}, sa: {}'.format(*list(map(lambda x : round(x,2),[self.center_x_noShow, self.center_y_noShow, self.speed, self.angle, self.speed_angle]))))
 
     def update(self):
-        self.print_self()
+        if self.verbose:
+            self.print_self()
 
         if self.accelerating:
             speed_temp = (self.speed + ACCELERATION_UNIT)

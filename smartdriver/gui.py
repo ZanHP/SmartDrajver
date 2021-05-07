@@ -3,8 +3,8 @@ import time
 
 import arcade
 
-from constants import *
-from player import Player
+from smartdriver.constants import *
+from smartdriver.player import Player
 
 
 class MyGame(arcade.Window):
@@ -12,7 +12,7 @@ class MyGame(arcade.Window):
     Main application class.
     """
 
-    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=False, show=True):
+    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=False, show=True, verbose=False):
         """
         Initializer
         """
@@ -34,6 +34,7 @@ class MyGame(arcade.Window):
         self.player_sprite = None
         self.smart = smart
         self.show = show
+        self.verbose = verbose
 
         self.view_left = 0
 
@@ -49,7 +50,7 @@ class MyGame(arcade.Window):
         self.player_list = arcade.SpriteList()
 
         # Set up the player
-        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.smart, self.show)
+        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.smart, self.show, self.verbose)
         #self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, smart=True)
         
         self.player_list.append(self.player_sprite)
