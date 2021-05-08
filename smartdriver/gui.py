@@ -5,7 +5,8 @@ import arcade
 
 from smartdriver.constants import *
 from smartdriver.player import Player
-
+import numpy as np
+from scipy import interpolate
 
 class MyGame(arcade.Window):
     """
@@ -65,6 +66,17 @@ class MyGame(arcade.Window):
         arcade.start_render()
         arcade.draw_line(150, 100, 3500, 100, WHITE, line_width=3)
 
+
+        track = ((100,100),(250,300),(1200,100),(500,500))
+
+        track_x, track_y = list(zip(*track))
+
+        #tck = interpolate.splrep(track_x, track_y)
+        #print(tck)
+        
+
+
+
         # Draw all the sprites.
         self.player_list.draw()
 
@@ -95,7 +107,7 @@ class MyGame(arcade.Window):
 
         #self.view_left += 2
         
-        arcade.set_viewport(self.view_left, SCREEN_WIDTH + self.view_left, 0, SCREEN_HEIGHT)
+        #arcade.set_viewport(self.view_left, SCREEN_WIDTH + self.view_left, 0, SCREEN_HEIGHT)
         #for i, element in enumerate(main_points[:-1]):
         #    
         #    arcade.draw_line(element[0][0], element[0][1], main_points[i][0][0], main_points[i][0][1], WHITE)
