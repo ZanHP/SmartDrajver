@@ -18,9 +18,10 @@ class Track():
             A, B = self.checkpoints[self.next_checkpoint-1:self.next_checkpoint+1]
             arcade.draw_line(A[0],A[1],B[0],B[1], TRACK_COLOR_CURRENT, line_width=3)    
             if self.next_checkpoint > 1:
-                A, B = self.checkpoints[self.next_checkpoint-2:self.next_checkpoint]
-                arcade.draw_line(A[0],A[1],B[0],B[1], TRACK_COLOR_PASSED, line_width=3)    
-                arcade.draw_lines(self.checkpoints[:self.next_checkpoint-1], TRACK_COLOR_PASSED, line_width=3)        
+                for i in range(self.next_checkpoint-1):
+                    A, B = self.checkpoints[i], self.checkpoints[i+1]
+                    arcade.draw_line(A[0],A[1],B[0],B[1], TRACK_COLOR_PASSED, line_width=3)    
+                #arcade.draw_lines(self.checkpoints[:self.next_checkpoint-1], TRACK_COLOR_PASSED, line_width=3)        
 
     def change_current_segment(self, A, B, C):
         # segment AB smo prečkali, gremo na BC, ustrezno se spremenijo barve

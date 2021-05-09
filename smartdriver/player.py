@@ -10,7 +10,7 @@ import random
 class Player(arcade.Sprite):
     """ Player class """
     
-    def __init__(self, image, scale, track, smart=False, show=True, verbose=False):
+    def __init__(self, image, scale, start, track, smart=False, show=True, verbose=False):
         """ Set up the player """
 
         # Call the parent init
@@ -20,11 +20,11 @@ class Player(arcade.Sprite):
         self.show = show
         self.smart = smart
 
-        self.center_x = 100
-        self.center_y = 100
+        self.center_x = start[0]
+        self.center_y = start[1]
         self.center_x_noShow = self.center_x
         self.center_y_noShow = self.center_y
-        self.verbose = False
+        self.verbose = verbose
 
         self.speed_angle = 0
         self.speed = 0
@@ -51,7 +51,8 @@ class Player(arcade.Sprite):
 
     def update(self):
         if self.verbose:
-            self.print_self()
+            #self.print_self()
+            print(self)
 
         if self.accelerating:
             speed_temp = (self.speed + ACCELERATION_UNIT)
@@ -139,7 +140,7 @@ class Player(arcade.Sprite):
             if not self.accelerating:
                 self.on_press_key_up()
             angle_dif = (self.angle_of_checkpoint() - self.angle) % 360
-            print(angle_dif)
+            #print(angle_dif)
             if abs(angle_dif) > ANGLE_SPEED:
                 if angle_dif < 180:
                     self.on_press_key_left()

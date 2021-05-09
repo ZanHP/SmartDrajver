@@ -4,7 +4,7 @@ from smartdriver.gui import MyGame
 
 def main():
     """ Main method """
-    window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, smart=True, show=True)
+    window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, smart=False, show=True, verbose=False)
     window.setup()
     arcade.run()
 
