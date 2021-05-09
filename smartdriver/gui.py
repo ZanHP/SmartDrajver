@@ -7,7 +7,6 @@ from pyglet.libs.x11.xlib import Screen
 from smartdriver.constants import *
 from smartdriver.player import Player
 from smartdriver.track import Track
-from smartdriver.pause import PauseView
 
 import numpy as np
 from scipy import interpolate
