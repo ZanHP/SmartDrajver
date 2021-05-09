@@ -5,6 +5,7 @@ import arcade
 
 from smartdriver.constants import *
 from smartdriver.player import Player
+from smartdriver.track import Track
 
 
 class MyGame(arcade.Window):
@@ -49,21 +50,24 @@ class MyGame(arcade.Window):
         # Sprite lists
         self.player_list = arcade.SpriteList()
 
+        # Set up the track
+        self.track = Track([[100, 100], [100, SCREEN_HEIGHT-500], [SCREEN_WIDTH-100, SCREEN_HEIGHT-100]])
+
         # Set up the player
-        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.smart, self.show, self.verbose)
-        #self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, smart=True)
-        
+        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track, self.smart, self.show, self.verbose)
+                
         self.player_list.append(self.player_sprite)
 
     def on_draw(self):
         """
         Render the screen.
         """
-        WHITE = (255,255,255)
 
         # This command has to happen before we start drawing
         arcade.start_render()
-        arcade.draw_line(150, 100, 3500, 100, WHITE, line_width=3)
+
+        self.track.draw_track()
+
 
         # Draw all the sprites.
         self.player_list.draw()
@@ -71,16 +75,15 @@ class MyGame(arcade.Window):
     def on_update(self, delta_time):
         """ Movement and game logic """
 
-        # Call update on all sprites (The sprites don't do much in this
-        # example though.)
+        # Call update on sprite
         #print(self.player_list[0])
         if self.player_list[0].smart:
-            self.player_list[0].next_move()
+            self.player_list[0].next_move_and_update()
         else:
             self.player_list[0].update()
 
         
-                
+        '''
         TRACK_WIDTH = 15
         WHITE = (255,255,255)
 
@@ -106,7 +109,7 @@ class MyGame(arcade.Window):
         #points = list(range(100))
         #points = list(zip(points,points)) 
         #arcade.draw_points(points, color=(255,255,255))
-
+        '''
 
 
     def on_key_press(self, key, modifiers):
