@@ -8,7 +8,6 @@ def main():
     window.setup()
     arcade.run()
 
-
     # 20.63
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-UPDATE_RATE = 1/60
+UPDATE_RATE = 1/90
 SPRITE_SCALING = 0.5
 
 SCREEN_WIDTH = 1400
@@ -23,4 +23,5 @@ TRACK_COLOR_FUTURE = (255,255,255)
 
 sh = SCREEN_HEIGHT
 sw = SCREEN_WIDTH
-TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.3, 0.9], [0.4,0.3], [0.9,0.5]]))
+TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.5, 0.5]]))
+TRACK2 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.3, 0.9], [0.4,0.3], [0.9,0.5]]))
