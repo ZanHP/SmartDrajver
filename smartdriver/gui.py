@@ -31,6 +31,8 @@ class MyGame(arcade.Window):
         file_path = os.path.dirname(os.path.abspath(__file__))
         os.chdir(file_path)
 
+        self.num_frames_passed = 0
+
         # Variables that will hold sprite lists
         self.player_list = None
 
@@ -77,6 +79,13 @@ class MyGame(arcade.Window):
 
         if self.pause:
             arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
+        else:
+            self.num_frames_passed += 1
+        
+        arcade.draw_text("time: {}".format(round(self.num_frames_passed * UPDATE_RATE,2)), SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
+        
+        
+
         
         '''
         def komentar():
@@ -98,9 +107,11 @@ class MyGame(arcade.Window):
         #print(self.player_list[0])
         if not self.pause:
             if self.player_list[0].smart:
-                self.player_list[0].next_move_and_update()
+                if not self.player_list[0].next_move_and_update():
+                    self.pause = True
             else:
-                self.player_list[0].update()
+                if not self.player_list[0].update():
+                    self.pause = True
 
         
         '''
@@ -137,6 +148,12 @@ class MyGame(arcade.Window):
         """Called whenever a key is pressed. """
         if key == arcade.key.ESCAPE:
             self.pause = False if self.pause else True
+
+        if key == arcade.key.R:
+            self.track = Track(TRACK1)
+            self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, self.show, self.verbose)
+            self.player_list[0] = self.player_sprite
+            self.num_frames_passed = 0
 
         if key == arcade.key.S:
             self.smart = False if self.smart else True

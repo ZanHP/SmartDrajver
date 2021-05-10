@@ -96,7 +96,9 @@ class Player(arcade.Sprite):
         #if random.random() < 0.01:
         #    self.checkpoint_reached()
         if self.distance_to_next_checkpoint() < TOL_CHECKPOINT:
-            self.checkpoint_reached()
+            return self.checkpoint_reached()
+        else:
+            return True
         #if ((self.center_x_noShow - self.next_checkpoint[0]) ** 2 + (self.center_y_noShow - self.next_checkpoint[1]) ** 2) ** 0.5 < TOL_CHECKPOINT:
         #    print(((self.center_x_noShow - self.next_checkpoint[0]) ** 2 + (self.center_y_noShow - self.next_checkpoint[1]) ** 2) ** 0.5)
         #    self.checkpoint_reached()
@@ -113,7 +115,15 @@ class Player(arcade.Sprite):
 
     def checkpoint_reached(self):
         self.next_checkpoint += 1
-        self.track.next_checkpoint = self.next_checkpoint
+        if self.next_checkpoint < len(self.track.checkpoints):
+            self.track.next_checkpoint = self.next_checkpoint
+            print(True)
+            #print(self.next_checkpoint, "True", len(self.track.checkpoints))
+            return True
+        else:
+            #print(self.next_checkpoint, "False", len(self.track.checkpoints))
+            print(False)
+            return False
 
     def angle_of_checkpoint(self):
         nc = self.track.checkpoints[self.next_checkpoint]
@@ -137,8 +147,13 @@ class Player(arcade.Sprite):
                 else:
                     self.on_press_key_left()
         else:
-            if not self.accelerating:
+            d = self.distance_to_next_checkpoint()
+            if d > 2*TOL_CHECKPOINT:
+                self.on_press_key_down()
                 self.on_press_key_up()
+            elif d > TOL_CHECKPOINT :
+                self.on_release_key_up()
+                self.on_press_key_down()
             angle_dif = (self.angle_of_checkpoint() - self.angle) % 360
             #print(angle_dif)
             if abs(angle_dif) > ANGLE_SPEED:
@@ -149,7 +164,7 @@ class Player(arcade.Sprite):
             else:
                 self.on_release_key_left()
                 self.on_release_key_right()
-        self.update()
+        return self.update()
 
     def on_press_key_up(self):
         self.accelerating = True
