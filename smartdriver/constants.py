@@ -1,4 +1,4 @@
-UPDATE_RATE = 1/900
+UPDATE_RATE = 1/290
 SPRITE_SCALING = 0.5
 
 SCREEN_WIDTH = 1400
@@ -27,3 +27,7 @@ sh = SCREEN_HEIGHT
 sw = SCREEN_WIDTH
 TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.5, 0.5],[0.1,0.1]]))
 TRACK2 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.3, 0.9], [0.4,0.3], [0.9,0.5],[0.1,0.1]]))
+
+
+ALPHA = 0.01
+CONSECUTIVE_STEPS = 5

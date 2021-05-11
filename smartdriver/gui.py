@@ -41,6 +41,13 @@ class MyGame(arcade.Window):
         self.finished = False
 
         self.best_actions = []
+
+
+        # ce zelis pogledati simulacijo
+        #dbfile = open('smartdriver/599.pkl', 'rb')     
+        #self.best_actions = pickle.load(dbfile)
+
+
         self.train = train
         self.train_iteration = 0
 

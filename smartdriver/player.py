@@ -125,7 +125,7 @@ class Player(arcade.Sprite):
     def checkpoint_reached(self):
         # True, če še nismo na koncu, False, če smo končali.
         self.next_checkpoint += 1
-
+        self.track.next_checkpoint =  self.next_checkpoint
         if self.next_checkpoint < len(self.track.checkpoints):
             return True
         else:
@@ -141,7 +141,7 @@ class Player(arcade.Sprite):
             return temp_angle
 
     def next_move_and_update(self, rand=False):
-        ALPHA = 0.02
+        
         
 
         if rand:
@@ -171,7 +171,7 @@ class Player(arcade.Sprite):
                 self.has_done_random = True
                 self.do_action(choice)
 
-                self.remember_random = 5
+                self.remember_random = CONSECUTIVE_STEPS
                 self.remember_random_action = choice
 
             else:
