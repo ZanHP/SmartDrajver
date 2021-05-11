@@ -3,6 +3,7 @@ import time
 
 import arcade
 from pyglet.libs.x11.xlib import Screen
+from pyglet.window.key import F
 
 from smartdriver.constants import *
 from smartdriver.player import Player
@@ -31,15 +32,8 @@ class MyGame(arcade.Window):
         Initializer
         """
 
-        # Call the parent class initializer
-        super().__init__(width, height, title)
-        print(super().current_view)
-        # Set the working directory (where we expect to find files) to the same
-        # directory this .py file is in. You can leave this out of your own
-        # code, but it is needed to easily run the examples using "python -m"
-        # as mentioned at the top of this program.
-        file_path = os.path.dirname(os.path.abspath(__file__))
-        os.chdir(file_path)
+        self.show = show
+        self.num_steps_made = 0
 
         # Variables that will hold sprite lists
         self.player_list = None
@@ -47,17 +41,30 @@ class MyGame(arcade.Window):
         # Set up the player info
         self.player_sprite = None
         self.smart = smart
-        self.show = show
+        
         self.verbose = verbose
 
-        self.pause = False
+        self.pause = True
+        self.finished = False
 
-        self.view_left = 0
+        if self.show:
+            # Call the parent class initializer
+            super().__init__(width, height, title)
+            # Set the working directory (where we expect to find files) to the same
+            # directory this .py file is in. You can leave this out of your own
+            # code, but it is needed to easily run the examples using "python -m"
+            # as mentioned at the top of this program.
+            file_path = os.path.dirname(os.path.abspath(__file__))
+            os.chdir(file_path)
 
-        arcade.Window.set_update_rate(self, update_rate)
+            arcade.Window.set_update_rate(self, update_rate)
 
-        # Set the background color
-        arcade.set_background_color(arcade.color.BLACK)
+            # Set the background color
+            arcade.set_background_color(arcade.color.BLACK)
+        else:
+            super().__init__(width//4, height//4, title)
+            arcade.set_background_color(arcade.color.BLACK)
+            arcade.draw_text("Learning", width//8, height//8+20, TRACK_COLOR_PASSED, font_size=20, anchor_x="center")
 
     def setup(self):
         """ Set up the game and initialize the variables. """
@@ -67,7 +74,7 @@ class MyGame(arcade.Window):
         used for measuring distance to the wall
         # Sprite lists
 
-        self.player_list = arcade.SpriteList()
+        
         
         TRACK2 = [(300,100),(300,600),(900,600),(900,100),(300,100)]
 
@@ -83,6 +90,7 @@ class MyGame(arcade.Window):
         self.wall_list.append(self.sprite)
         start_point = (300, 200)
         '''
+        self.player_list = arcade.SpriteList()
 
 
 
@@ -91,13 +99,11 @@ class MyGame(arcade.Window):
         
 
         # Set up the player
-        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, start_point, self.track, self.smart, self.show, self.verbose)
-                
+        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, self.verbose)
         self.player_list.append(self.player_sprite)
         #self.physics_engine = arcade.PhysicsEngineSimple(self.player_sprite,
         #                                                 self.wall_list)
 
-        #arcade.has_line_of_sight()
 
     @staticmethod
     def objects_in_line(point_1: Point,
@@ -117,70 +123,56 @@ class MyGame(arcade.Window):
         Render the screen.
         """
 
-        # This command has to happen before we start drawing
-        arcade.start_render()
-
-        '''
-            used for measuring distance to the wall
-
-            arcade.draw_point(250, 900, (255,0,0),6.0)
-            has = arcade.has_line_of_sight((self.player_sprite.center_x, self.player_sprite.center_y),
-            (250, 900),
-            self.wall_list        
-            )
-            anyone = self.objects_in_line((self.player_sprite.center_x, self.player_sprite.center_y),
-            (250, 900),
-            self.wall_list)
-            print(has,list(anyone))
-
-            track_points = (
-            ((200, 200),(250,200)),
-            ((200,500),(250,500)),
-            )
-            
-            outer_track_points = (
-                (200,0),(200,700),(1000, 700),(1000,0),(200,0)
-            )
-            inner_track_points = (
-                (400,200),(400,500),(800,500),(800,200),(400,200)
-            )
-
-            arcade.draw_line_strip(inner_track_points, COLOR_WHITE)
-            arcade.draw_line_strip(outer_track_points, COLOR_WHITE)
-            
-        '''
+        if self.show:
+            # This command has to happen before we start drawing
+            arcade.start_render()
         
 
-        self.track.draw_track()
-        self.sprite.draw()
+            #self.sprite.draw()
+            self.track.draw_track()
 
-        arcade.draw_text("S:   toggle smart\nEsc: pause", SCREEN_WIDTH-200, 20, TRACK_COLOR_PASSED, font_size=14)
+            arcade.draw_text("S:   toggle smart\nEsc: pause", SCREEN_WIDTH-200, 20, TRACK_COLOR_PASSED, font_size=14)
 
         if self.pause:
             arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
         
-        '''
+            '''
             #track = ((100,100),(250,300),(1200,100),(500,500))
-
-            #track_x, track_y = list(zip(*track))
-
+            if self.pause:
+                arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
             
-        '''
-       
-        
-        # Draw all the sprites.
+            
+            arcade.draw_text("time: {}".format(self.num_steps_made), SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
+                    
+            
+            def komentar():
+                #track = ((100,100),(250,300),(1200,100),(500,500))
+
+                #track_x, track_y = list(zip(*track))
+
+                #tck = interpolate.splrep(track_x, track_y)
+                #print(tck)
+            
+            
+            # Draw all the sprites.
+            '''
         self.player_list.draw()
 
-    def on_update(self, delta_time):
+    def on_update(self, delta_time=UPDATE_RATE):
         """ Movement and game logic """
 
         # Call update on sprite
         #print(self.player_list[0])
         if not self.pause:
+            self.num_steps_made += 1
             if self.player_list[0].smart:
-                self.player_list[0].next_move_and_update()
+                if not self.player_list[0].next_move_and_update():
+                    self.pause = True
+                    self.finished = True
             else:
-                self.player_list[0].update()
+                if not self.player_list[0].update():
+                    self.pause = True
+                    self.finished = True
 
         
         '''
@@ -218,6 +210,14 @@ class MyGame(arcade.Window):
         if key == arcade.key.ESCAPE:
             self.pause = False if self.pause else True
 
+        if key == arcade.key.R:
+            self.track = Track(TRACK1)
+            self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, self.verbose)
+            self.player_list[0] = self.player_sprite
+            self.num_steps_made = 0
+            self.pause = True
+            self.finished = False
+
         if key == arcade.key.S:
             self.smart = False if self.smart else True
             self.player_list[0].smart = self.smart
@@ -228,6 +228,8 @@ class MyGame(arcade.Window):
 
         if not self.smart:
             # Forward/back
+            if not self.finished and key in [arcade.key.UP, arcade.key.DOWN, arcade.key.RIGHT, arcade.key.LEFT]:
+                self.pause = False
             if key == arcade.key.UP:
                 self.player_sprite.on_press_key_up()
             elif key == arcade.key.DOWN:
@@ -250,3 +252,35 @@ class MyGame(arcade.Window):
                 self.player_sprite.on_release_key_left()
             if key == arcade.key.RIGHT:
                 self.player_sprite.on_release_key_right()           
+
+
+
+        '''
+            used for measuring distance to the wall
+
+            arcade.draw_point(250, 900, (255,0,0),6.0)
+            has = arcade.has_line_of_sight((self.player_sprite.center_x, self.player_sprite.center_y),
+            (250, 900),
+            self.wall_list        
+            )
+            anyone = self.objects_in_line((self.player_sprite.center_x, self.player_sprite.center_y),
+            (250, 900),
+            self.wall_list)
+            print(has,list(anyone))
+
+            track_points = (
+            ((200, 200),(250,200)),
+            ((200,500),(250,500)),
+            )
+            
+            outer_track_points = (
+                (200,0),(200,700),(1000, 700),(1000,0),(200,0)
+            )
+            inner_track_points = (
+                (400,200),(400,500),(800,500),(800,200),(400,200)
+            )
+
+            arcade.draw_line_strip(inner_track_points, COLOR_WHITE)
+            arcade.draw_line_strip(outer_track_points, COLOR_WHITE)
+            
+        '''

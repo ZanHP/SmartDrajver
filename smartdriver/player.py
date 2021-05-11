@@ -10,20 +10,20 @@ import random
 class Player(arcade.Sprite):
     """ Player class """
     
-    def __init__(self, image, scale, start, track, smart=False, show=True, verbose=False):
+    def __init__(self, image, scale, start, track, smart=False, verbose=False):
         """ Set up the player """
 
         # Call the parent init
         super().__init__(image, scale)
 
         self.track = track
-        self.show = show
+        #self.show = show
         self.smart = smart
 
         self.center_x = start[0]
         self.center_y = start[1]
-        self.center_x_noShow = self.center_x
-        self.center_y_noShow = self.center_y
+        #self.center_x_noShow = self.center_x
+        #self.center_y_noShow = self.center_y
         self.verbose = verbose
 
         self.speed_angle = 0
@@ -43,13 +43,11 @@ class Player(arcade.Sprite):
         #return str(property_names)
         return "smart: {}, up: {}, down: {}, right: {}, left: {}".format(self.smart, self.accelerating, self.braking, self.change_angle, self.change_angle)    
 
-    def print_self(self):
-        if self.show:            
-            print('x: {}, y: {}, v: {}, a: {}, sa: {}'.format(*list(map(lambda x : round(x,2),[self.center_x, self.center_y, self.speed, self.angle, self.speed_angle]))))
-        else:
-            print('x: {}, y: {}, v: {}, a: {}, sa: {}'.format(*list(map(lambda x : round(x,2),[self.center_x_noShow, self.center_y_noShow, self.speed, self.angle, self.speed_angle]))))
+    def print_self(self):          
+        print('x: {}, y: {}, v: {}, a: {}, sa: {}'.format(*list(map(lambda x : round(x,2),[self.center_x, self.center_y, self.speed, self.angle, self.speed_angle]))))
 
     def update(self):
+        # Naredi en časovni korak. Vrne True, če nismo na koncu proge in False, če smo.
         if self.verbose:
             #self.print_self()
             print(self)
@@ -74,52 +72,62 @@ class Player(arcade.Sprite):
 
         speed_angle_rad = math.radians(self.speed_angle)
 
-        x_temp = self.center_x_noShow + self.speed * (-math.sin(speed_angle_rad))
-        y_temp = self.center_y_noShow + self.speed * math.cos(speed_angle_rad)
+        x_temp = self.center_x + self.speed * (-math.sin(speed_angle_rad))
+        y_temp = self.center_y + self.speed * math.cos(speed_angle_rad)
         if x_temp < 0:
-            self.center_x_noShow = 0
+            self.center_x = 0
         elif x_temp > SCREEN_WIDTH:
-            self.center_x_noShow = SCREEN_WIDTH
+            self.center_x = SCREEN_WIDTH
         else:
-            self.center_x_noShow = x_temp
+            self.center_x = x_temp
         if y_temp < 0:
-            self.center_y_noShow = 0
+            self.center_y = 0
         elif y_temp > SCREEN_HEIGHT:
-            self.center_y_noShow = SCREEN_HEIGHT
+            self.center_y = SCREEN_HEIGHT
         else:
-            self.center_y_noShow = y_temp
+            self.center_y = y_temp
 
-        if self.show:
-            self.center_x = self.center_x_noShow
-            self.center_y = self.center_y_noShow
+        self.print_self()
+
+        #if self.show:
+        #    self.center_x = self.center_x_noShow
+        #    self.center_y = self.center_y_noShow
 
         #if random.random() < 0.01:
         #    self.checkpoint_reached()
         if self.distance_to_next_checkpoint() < TOL_CHECKPOINT:
-            self.checkpoint_reached()
+            return self.checkpoint_reached()
+        else:
+            return True
         #if ((self.center_x_noShow - self.next_checkpoint[0]) ** 2 + (self.center_y_noShow - self.next_checkpoint[1]) ** 2) ** 0.5 < TOL_CHECKPOINT:
         #    print(((self.center_x_noShow - self.next_checkpoint[0]) ** 2 + (self.center_y_noShow - self.next_checkpoint[1]) ** 2) ** 0.5)
         #    self.checkpoint_reached()
 
         #print(self.angle_of_checkpoint())
         #print('angle:',self.angle)
+        
 
     def distance_to_next_checkpoint(self):
-        x, y = self.center_x_noShow, self.center_y_noShow
+        x, y = self.center_x, self.center_y
         nc = self.track.checkpoints[self.next_checkpoint]
         res = ((x-nc[0])**2 + (y-nc[1])**2)**0.5
         #print(res)
         return res
 
     def checkpoint_reached(self):
+        # True, če še nismo na koncu, False, če smo končali.
         self.next_checkpoint += 1
-        self.track.next_checkpoint = self.next_checkpoint
+        if self.next_checkpoint < len(self.track.checkpoints):
+            self.track.next_checkpoint = self.next_checkpoint
+            return True
+        else:
+            return False
 
     def angle_of_checkpoint(self):
         nc = self.track.checkpoints[self.next_checkpoint]
-        nc_direction = [nc[0]-self.center_x_noShow, nc[1]-self.center_y_noShow]
+        nc_direction = [nc[0]-self.center_x, nc[1]-self.center_y]
         temp_angle = angle_of_vectors([0,1],nc_direction)
-        if self.center_x_noShow < nc[0]:
+        if self.center_x < nc[0]:
             return -temp_angle
         else:
             return temp_angle
@@ -137,8 +145,13 @@ class Player(arcade.Sprite):
                 else:
                     self.on_press_key_left()
         else:
-            if not self.accelerating:
+            d = self.distance_to_next_checkpoint()
+            if d > 2*TOL_CHECKPOINT:
+                self.on_press_key_down()
                 self.on_press_key_up()
+            elif d > TOL_CHECKPOINT :
+                self.on_release_key_up()
+                self.on_press_key_down()
             angle_dif = (self.angle_of_checkpoint() - self.angle) % 360
             #print(angle_dif)
             if abs(angle_dif) > ANGLE_SPEED:
@@ -149,7 +162,7 @@ class Player(arcade.Sprite):
             else:
                 self.on_release_key_left()
                 self.on_release_key_right()
-        self.update()
+        return self.update()
 
     def on_press_key_up(self):
         self.accelerating = True

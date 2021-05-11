@@ -1,4 +1,4 @@
-UPDATE_RATE = 1/60
+UPDATE_RATE = 1/290
 SPRITE_SCALING = 0.5
 
 SCREEN_WIDTH = 1400
@@ -15,16 +15,15 @@ BRAKING_POWER = 0.6
 MAX_SPEED = 3
 TOL = 0.01
 TOL_ANGLE = 0.01
-TOL_CHECKPOINT = 50
+TOL_CHECKPOINT = 20
 
-TRACK_COLOR_PASSED = (255,255,100)
-TRACK_COLOR_CURRENT = (255,100,255)
+TRACK_COLOR_PASSED = (0,255,00)
+TRACK_COLOR_CURRENT = (255,0,0)
 TRACK_COLOR_FUTURE = (255,255,255)
 
 COLOR_WHITE = (255,255,255)
 
 sh = SCREEN_HEIGHT
 sw = SCREEN_WIDTH
-
-TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.3, 0.9], [0.4,0.3], [0.9,0.5]]))
-
+TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.5, 0.5]]))
+TRACK2 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.3, 0.9], [0.4,0.3], [0.9,0.5]]))
