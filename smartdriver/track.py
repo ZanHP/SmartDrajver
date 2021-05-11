@@ -6,7 +6,7 @@ class Track():
     
     def __init__(self, checkpoints):
         self.checkpoints = checkpoints
-        self.checkpoints.append(checkpoints[0])
+        #self.checkpoints.append(checkpoints[0])
 
         self.next_checkpoint = 1
     

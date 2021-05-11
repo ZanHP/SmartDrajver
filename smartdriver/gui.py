@@ -1,37 +1,30 @@
 import os
+import pickle
 import time
 
 import arcade
+import numpy as np
+from arcade import Point, Sprite, SpriteList, check_for_collision_with_list
+from PIL import Image
 from pyglet.libs.x11.xlib import Screen
 from pyglet.window.key import F
+from scipy import interpolate
+from shapely.geometry import LineString, Polygon  # type: ignore
 
 from smartdriver.constants import *
 from smartdriver.player import Player
 from smartdriver.track import Track
 
-from shapely.geometry import LineString, Polygon # type: ignore
-
-from arcade import Point
-from arcade import check_for_collision_with_list
-from arcade import Sprite
-from arcade import SpriteList
-
-from PIL import Image
-
-
-import numpy as np
-from scipy import interpolate
 
 class MyGame(arcade.Window):
     """
     Main application class.
     """
 
-    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=False, show=True, verbose=False):
+    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=False, show=True, verbose=False, train=False):
         """
         Initializer
         """
-
         self.show = show
         self.num_steps_made = 0
 
@@ -47,9 +40,13 @@ class MyGame(arcade.Window):
         self.pause = True
         self.finished = False
 
+        self.best_actions = []
+        self.train = train
+        self.train_iteration = 0
+
         if self.show:
             # Call the parent class initializer
-            super().__init__(width, height, title)
+            super().__init__(width, height, title, update_rate=update_rate)
             # Set the working directory (where we expect to find files) to the same
             # directory this .py file is in. You can leave this out of your own
             # code, but it is needed to easily run the examples using "python -m"
@@ -57,7 +54,7 @@ class MyGame(arcade.Window):
             file_path = os.path.dirname(os.path.abspath(__file__))
             os.chdir(file_path)
 
-            arcade.Window.set_update_rate(self, update_rate)
+            
 
             # Set the background color
             arcade.set_background_color(arcade.color.BLACK)
@@ -101,8 +98,6 @@ class MyGame(arcade.Window):
         # Set up the player
         self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, self.verbose)
         self.player_list.append(self.player_sprite)
-        #self.physics_engine = arcade.PhysicsEngineSimple(self.player_sprite,
-        #                                                 self.wall_list)
 
 
     @staticmethod
@@ -136,31 +131,33 @@ class MyGame(arcade.Window):
         if self.pause:
             arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
         
-            '''
-            #track = ((100,100),(250,300),(1200,100),(500,500))
-            if self.pause:
-                arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
-            
-            
-            arcade.draw_text("time: {}".format(self.num_steps_made), SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
-                    
-            
-            def komentar():
-                #track = ((100,100),(250,300),(1200,100),(500,500))
-
-                #track_x, track_y = list(zip(*track))
-
-                #tck = interpolate.splrep(track_x, track_y)
-                #print(tck)
-            
-            
-            # Draw all the sprites.
-            '''
+        arcade.draw_text("time: {}".format(self.num_steps_made), SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
         self.player_list.draw()
+
+        
+        '''
+        
+        #track = ((100,100),(250,300),(1200,100),(500,500))
+        if self.pause:
+            arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
+        
+        
+                
+        
+        def komentar():
+            #track = ((100,100),(250,300),(1200,100),(500,500))
+
+            #track_x, track_y = list(zip(*track))
+
+            #tck = interpolate.splrep(track_x, track_y)
+            #print(tck)
+        
+        
+        # Draw all the sprites.
+        '''
 
     def on_update(self, delta_time=UPDATE_RATE):
         """ Movement and game logic """
-
         # Call update on sprite
         #print(self.player_list[0])
         if not self.pause:
@@ -169,6 +166,30 @@ class MyGame(arcade.Window):
                 if not self.player_list[0].next_move_and_update():
                     self.pause = True
                     self.finished = True
+                    
+                    if not self.best_actions:
+                        self.best_actions = self.player_sprite.actions
+
+                    print("Train iteration: ", self.train_iteration)
+                    if len(self.player_sprite.actions) < len(self.best_actions):
+                        print("YES!",len(self.player_sprite.actions))
+                        self.best_actions = self.player_sprite.actions
+                        with open('best.pkl', 'wb') as f:
+                            pickle.dump(self.best_actions, f)
+                    else:
+                        print("TRY AGAIN", len(self.player_sprite.actions))
+                    
+                    self.train_iteration += 1
+                    
+
+                    if self.train:
+                        self.finished = False
+                        self.pause = False
+                        self.setup()
+                        self.player_sprite.recorded_actions = self.best_actions
+                        self.player_sprite.action_index = 0
+                        self.num_steps_made = 0
+                    
             else:
                 if not self.player_list[0].update():
                     self.pause = True
@@ -210,13 +231,17 @@ class MyGame(arcade.Window):
         if key == arcade.key.ESCAPE:
             self.pause = False if self.pause else True
 
+
         if key == arcade.key.R:
-            self.track = Track(TRACK1)
-            self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, self.verbose)
-            self.player_list[0] = self.player_sprite
+            self.setup()
+
+            self.player_sprite.recorded_actions = self.best_actions
+            self.player_sprite.action_index = 0
+
             self.num_steps_made = 0
             self.pause = True
             self.finished = False
+            
 
         if key == arcade.key.S:
             self.smart = False if self.smart else True
@@ -225,6 +250,7 @@ class MyGame(arcade.Window):
             self.player_list[0].on_release_key_down()
             self.player_list[0].on_release_key_left()
             self.player_list[0].on_release_key_right()
+
 
         if not self.smart:
             # Forward/back
@@ -240,7 +266,6 @@ class MyGame(arcade.Window):
                 self.player_sprite.on_press_key_left()
             elif key == arcade.key.RIGHT:
                 self.player_sprite.on_press_key_right()
-
     def on_key_release(self, key, modifiers):
         """Called when the user releases a key. """
         if not self.player_list[0].smart:
