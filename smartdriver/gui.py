@@ -8,6 +8,16 @@ from smartdriver.constants import *
 from smartdriver.player import Player
 from smartdriver.track import Track
 
+from shapely.geometry import LineString, Polygon # type: ignore
+
+from arcade import Point
+from arcade import check_for_collision_with_list
+from arcade import Sprite
+from arcade import SpriteList
+
+from PIL import Image
+
+
 import numpy as np
 from scipy import interpolate
 
@@ -51,17 +61,56 @@ class MyGame(arcade.Window):
 
     def setup(self):
         """ Set up the game and initialize the variables. """
+        
+        '''
 
+        used for measuring distance to the wall
         # Sprite lists
+
         self.player_list = arcade.SpriteList()
+        
+        TRACK2 = [(300,100),(300,600),(900,600),(900,100),(300,100)]
+
+        img = Image.new("RGB", (200, 200), (255, 255, 255))
+        img.save("/tmp/image.png", "PNG")
+        self.wall_list = arcade.SpriteList(use_spatial_hash=True)
+
+        self.sprite = arcade.Sprite("/tmp/image.png")
+
+        self.sprite.center_x = 300
+        self.sprite.center_y = 750
+
+        self.wall_list.append(self.sprite)
+        start_point = (300, 200)
+        '''
+
+
 
         # Set up the track
         self.track = Track(TRACK1)
+        
 
         # Set up the player
-        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, self.show, self.verbose)
+        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, start_point, self.track, self.smart, self.show, self.verbose)
                 
         self.player_list.append(self.player_sprite)
+        #self.physics_engine = arcade.PhysicsEngineSimple(self.player_sprite,
+        #                                                 self.wall_list)
+
+        #arcade.has_line_of_sight()
+
+    @staticmethod
+    def objects_in_line(point_1: Point,
+                      point_2: Point,
+                      walls: SpriteList,
+                      max_distance: int = -1):
+
+        line_of_sight = LineString([point_1, point_2])
+        if 0 < max_distance < line_of_sight.length:
+            return False
+        if not walls:
+            return True
+        return ( o for o in walls if Polygon(o.get_adjusted_hit_box()).crosses(line_of_sight))
 
     def on_draw(self):
         """
@@ -71,7 +120,39 @@ class MyGame(arcade.Window):
         # This command has to happen before we start drawing
         arcade.start_render()
 
+        '''
+            used for measuring distance to the wall
+
+            arcade.draw_point(250, 900, (255,0,0),6.0)
+            has = arcade.has_line_of_sight((self.player_sprite.center_x, self.player_sprite.center_y),
+            (250, 900),
+            self.wall_list        
+            )
+            anyone = self.objects_in_line((self.player_sprite.center_x, self.player_sprite.center_y),
+            (250, 900),
+            self.wall_list)
+            print(has,list(anyone))
+
+            track_points = (
+            ((200, 200),(250,200)),
+            ((200,500),(250,500)),
+            )
+            
+            outer_track_points = (
+                (200,0),(200,700),(1000, 700),(1000,0),(200,0)
+            )
+            inner_track_points = (
+                (400,200),(400,500),(800,500),(800,200),(400,200)
+            )
+
+            arcade.draw_line_strip(inner_track_points, COLOR_WHITE)
+            arcade.draw_line_strip(outer_track_points, COLOR_WHITE)
+            
+        '''
+        
+
         self.track.draw_track()
+        self.sprite.draw()
 
         arcade.draw_text("S:   toggle smart\nEsc: pause", SCREEN_WIDTH-200, 20, TRACK_COLOR_PASSED, font_size=14)
 
@@ -79,14 +160,13 @@ class MyGame(arcade.Window):
             arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
         
         '''
-        def komentar():
             #track = ((100,100),(250,300),(1200,100),(500,500))
 
             #track_x, track_y = list(zip(*track))
 
-            #tck = interpolate.splrep(track_x, track_y)
-            #print(tck)
+            
         '''
+       
         
         # Draw all the sprites.
         self.player_list.draw()
