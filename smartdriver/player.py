@@ -1,4 +1,5 @@
 import math
+import numpy as np
 
 import arcade
 
@@ -9,7 +10,7 @@ import random
 class Player(arcade.Sprite):
     """ Player class """
     
-    def __init__(self, image, scale, start, track, smart=False, verbose=False):
+    def __init__(self, image, scale, start, track, smart=False, best_run=np.Inf, verbose=False):
         """ Set up the player """
 
         # Call the parent init
@@ -35,6 +36,8 @@ class Player(arcade.Sprite):
         self.remember_random = 0
         self.remember_random_action = ""
 
+        self.best_run = best_run
+
         self.accelerating = False
         self.braking = False
 
@@ -53,12 +56,17 @@ class Player(arcade.Sprite):
         print('x: {}, y: {}, v: {}, a: {}, sa: {}'.format(*list(map(lambda x : round(x,2),[self.center_x, self.center_y, self.speed, self.angle, self.speed_angle]))))
 
     def update(self):
-        # Naredi en časovni korak. Vrne True, če nismo na koncu proge in False, če smo.
+        # Naredi en časovni korak. Vrne True, če nismo na koncu proge, False, če smo in None, če je bilo narejenih že preveč korakov.
         if self.verbose:
             #self.print_self()
             print(self)
 
+        if len(self.actions) > self.best_run:
+            print(self.best_run, len(self.recorded_actions))
+            return None
+
         self.actions.append(self.get_action())
+        
         if self.accelerating:
             speed_temp = (self.speed + ACCELERATION_UNIT)
             self.speed = min(speed_temp, MAX_SPEED)
@@ -105,6 +113,8 @@ class Player(arcade.Sprite):
         #    self.checkpoint_reached()
         if self.distance_to_next_checkpoint() < TOL_CHECKPOINT:
             res =  self.checkpoint_reached()
+            if not res:
+                self.has_recorded_run = True
             return res
         else:
             return True
@@ -131,8 +141,11 @@ class Player(arcade.Sprite):
         else:
             return False
 
-    def angle_of_checkpoint(self):
-        nc = self.track.checkpoints[self.next_checkpoint]
+    def angle_of_checkpoint(self, plus_one=0):
+        if len(self.track.checkpoints) > self.next_checkpoint+plus_one:
+            nc = self.track.checkpoints[self.next_checkpoint+plus_one]
+        else:
+            nc = self.track.checkpoints[self.next_checkpoint]
         nc_direction = [nc[0]-self.center_x, nc[1]-self.center_y]
         temp_angle = angle_of_vectors([0,1],nc_direction)
         if self.center_x < nc[0]:
@@ -140,41 +153,39 @@ class Player(arcade.Sprite):
         else:
             return temp_angle
 
-    def next_move_and_update(self, rand=False):
+    def next_move_and_update(self):
+        rand_val = random.random()
+        #if self.recorded_actions and not self.has_done_random and rand_val >= ALPHA:
+            # gre po stari najboljši poti
+            #self.do_action(self.recorded_actions[self.action_index])
+            #self.action_index += 1
         
-        
+        if self.remember_random != 0:
+            self.remember_random -= 1 
+            self.do_action(self.remember_random_action)
 
-        if rand:
-            if not self.accelerating:
-                if random.random() < 0.5:
-                    self.on_press_key_up()
-            elif random.random() < 0.1:
-                self.on_release_key_up()
-            elif random.random() < 0.5:
-                if random.random() < 0.5:
-                    self.on_press_key_right()
-                else:
-                    self.on_press_key_left()
+        elif rand_val < ALPHA: #or self.remember_random:
+            choices = ["D","A",""]
+            choice = random.choice(choices) #if not self.remember_random else self.remember_random_action
+            #if not self.has_done_random: 
+            #    print(self.action_index)
+            self.has_done_random = True
+            self.do_action(choice)
+
+            self.remember_random = CONSECUTIVE_STEPS
+            self.remember_random_action = choice
+
         else:
-            rand_val = random.random()
-            if self.recorded_actions and not self.has_done_random and rand_val >= ALPHA:
-                self.do_action(self.recorded_actions[self.action_index])
-                self.action_index += 1
             
-            elif self.remember_random != 0:
-                self.remember_random = self.remember_random -1 
-                self.do_action(self.remember_random_action)
+            #if not self.accelerating:
+             #   self.on_press_key_up()
+            
+            d = self.distance_to_next_checkpoint()
+            if d > 2*TOL_CHECKPOINT:
+                self.on_release_key_down()
+                self.on_press_key_up()
 
-            elif rand_val < ALPHA: #or self.remember_random:
-                choices = ["D","A",""]
-                choice = random.choice(choices) #if not self.remember_random else self.remember_random_action
-                self.has_done_random = True
-                self.do_action(choice)
-
-                self.remember_random = CONSECUTIVE_STEPS
-                self.remember_random_action = choice
-
-            else:
+                # če ne dela naključne poteze, upošteva hevristiko
                 angle_dif = (self.angle_of_checkpoint() - self.angle) % 360
                 #print(angle_dif)
                 if abs(angle_dif) > ANGLE_SPEED:
@@ -186,16 +197,23 @@ class Player(arcade.Sprite):
                     self.on_release_key_left()
                     self.on_release_key_right()
 
+            elif d > TOL_CHECKPOINT:
+                if random.random() > ALPHA_BRAKE:
+                    self.on_release_key_up()
+                    self.on_press_key_down()
 
-    
-            d = self.distance_to_next_checkpoint()
-            if d > 2*TOL_CHECKPOINT:
-                self.on_release_key_down()
-                self.on_press_key_up()
-            elif d > TOL_CHECKPOINT :
-                self.on_release_key_up()
-                self.on_press_key_down()
-
+                # če ne dela naključne poteze, upošteva hevristiko
+                angle_dif = (self.angle_of_checkpoint(plus_one=1) - self.angle) % 360
+                #print(angle_dif)
+                if abs(angle_dif) > ANGLE_SPEED:
+                    if angle_dif < 180:
+                        self.on_press_key_left()
+                    else:
+                        self.on_press_key_right()
+                else:
+                    self.on_release_key_left()
+                    self.on_release_key_right()
+            
         return self.update()
 
     def get_action(self):

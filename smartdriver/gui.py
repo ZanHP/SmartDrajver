@@ -44,8 +44,8 @@ class MyGame(arcade.Window):
 
 
         # ce zelis pogledati simulacijo
-        #dbfile = open('smartdriver/599.pkl', 'rb')     
-        #self.best_actions = pickle.load(dbfile)
+        dbfile = open('smartdriver/best.pkl', 'rb')     
+        self.best_actions = pickle.load(dbfile)
 
 
         self.train = train
@@ -60,15 +60,13 @@ class MyGame(arcade.Window):
             # as mentioned at the top of this program.
             file_path = os.path.dirname(os.path.abspath(__file__))
             os.chdir(file_path)
-
-            
-
             # Set the background color
             arcade.set_background_color(arcade.color.BLACK)
+
         else:
-            super().__init__(width//4, height//4, title)
+            super().__init__(width//4, height//4, title, update_rate=update_rate)
             arcade.set_background_color(arcade.color.BLACK)
-            arcade.draw_text("Learning", width//8, height//8+20, TRACK_COLOR_PASSED, font_size=20, anchor_x="center")
+            
 
     def setup(self):
         """ Set up the game and initialize the variables. """
@@ -103,7 +101,7 @@ class MyGame(arcade.Window):
         
 
         # Set up the player
-        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, self.verbose)
+        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, best_run=len(self.best_actions) if self.best_actions else np.Inf, verbose=self.verbose)
         self.player_list.append(self.player_sprite)
 
 
@@ -124,43 +122,33 @@ class MyGame(arcade.Window):
         """
         Render the screen.
         """
-
+        # This command has to happen before we start drawing
+        arcade.start_render()
         if self.show:
-            # This command has to happen before we start drawing
-            arcade.start_render()
-        
-
+            arcade.draw_text("time: {}".format(self.num_steps_made), SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
             #self.sprite.draw()
             self.track.draw_track()
-
+            self.player_list.draw()
             arcade.draw_text("S:   toggle smart\nEsc: pause", SCREEN_WIDTH-200, 20, TRACK_COLOR_PASSED, font_size=14)
+        else:
+            arcade.draw_text("Learning", SCREEN_WIDTH//8, SCREEN_HEIGHT//8+20, TRACK_COLOR_PASSED, font_size=20, anchor_x="center")
+            arcade.draw_text("time: {}".format(self.num_steps_made), 100, 30, TRACK_COLOR_PASSED, font_size=14)
 
         if self.pause:
             arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
-        
-        arcade.draw_text("time: {}".format(self.num_steps_made), SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
-        self.player_list.draw()
-
         
         '''
-        
-        #track = ((100,100),(250,300),(1200,100),(500,500))
-        if self.pause:
-            arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
-        
-        
-                
-        
         def komentar():
+            #track = ((100,100),(250,300),(1200,100),(500,500))
+            if self.pause:
+                arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center") 
+                         
             #track = ((100,100),(250,300),(1200,100),(500,500))
 
             #track_x, track_y = list(zip(*track))
 
             #tck = interpolate.splrep(track_x, track_y)
             #print(tck)
-        
-        
-        # Draw all the sprites.
         '''
 
     def on_update(self, delta_time=UPDATE_RATE):
@@ -170,7 +158,8 @@ class MyGame(arcade.Window):
         if not self.pause:
             self.num_steps_made += 1
             if self.player_list[0].smart:
-                if not self.player_list[0].next_move_and_update():
+                info_about_move = self.player_list[0].next_move_and_update()
+                if info_about_move == False:
                     self.pause = True
                     self.finished = True
                     
@@ -186,8 +175,7 @@ class MyGame(arcade.Window):
                     else:
                         print("TRY AGAIN", len(self.player_sprite.actions))
                     
-                    self.train_iteration += 1
-                    
+                    self.train_iteration += 1                    
 
                     if self.train:
                         self.finished = False
@@ -196,6 +184,17 @@ class MyGame(arcade.Window):
                         self.player_sprite.recorded_actions = self.best_actions
                         self.player_sprite.action_index = 0
                         self.num_steps_made = 0
+                elif info_about_move == None:
+                    print("Train iteration: ", self.train_iteration)
+                    print("TRY AGAIN")
+                    if self.train:
+                        self.finished = False
+                        self.pause = False
+                        self.setup()
+                        self.player_sprite.recorded_actions = self.best_actions
+                        self.player_sprite.action_index = 0
+                        self.num_steps_made = 0
+                    self.train_iteration += 1
                     
             else:
                 if not self.player_list[0].update():
