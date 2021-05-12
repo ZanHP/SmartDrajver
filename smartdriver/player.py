@@ -130,7 +130,16 @@ class Player(arcade.Sprite):
 
         #print(self.angle_of_checkpoint())
         #print('angle:',self.angle)
-        
+
+    def states(self):
+        return self.distance_to_next_checkpoint(), self.distance_to_nn_checkpoint()
+    
+    def distance_to_nn_checkpoint(self):
+        x, y = self.center_x, self.center_y
+        nc = self.track.checkpoints[self.next_checkpoint + 1]
+        res = ((x-nc[0])**2 + (y-nc[1])**2)**0.5
+        return res
+
 
     def distance_to_next_checkpoint(self):
         x, y = self.center_x, self.center_y
@@ -159,41 +168,37 @@ class Player(arcade.Sprite):
         else:
             return temp_angle
 
-    def next_move_and_update(self):
-        rand_val = random.random()
+    def next_move_and_update(self, action=None, rand=False):
         d = self.distance_to_next_checkpoint()
-        if self.recorded_actions and not self.has_done_random and rand_val >= ALPHA:
-            # gre po stari najboljši poti
-            self.do_action(self.recorded_actions[self.action_index])
-            self.action_index += 1
-        
-        if self.remember_random != 0:
-            self.remember_random -= 1 
-            self.do_action(self.remember_random_action)
+        if rand:
+            rand_val = random.random()
+            if self.recorded_actions and not self.has_done_random and rand_val >= ALPHA:
+                # gre po stari najboljši poti
+                self.do_action(self.recorded_actions[self.action_index])
+                self.action_index += 1
+            
+            if self.remember_random != 0:
+                self.remember_random -= 1 
+                self.do_action(self.remember_random_action)
 
-        elif rand_val < ALPHA: #or self.remember_random:
-            choices = ["D","A","S",""]
-            choice = random.choice(choices) #if not self.remember_random else self.remember_random_action
-            #if not self.has_done_random: 
-            #    print(self.action_index)
-            self.has_done_random = True
-            self.do_action(choice)
+            elif rand_val < ALPHA: #or self.remember_random:
+                choices = ["R","L","D",""]
+                choice = random.choice(choices) #if not self.remember_random else self.remember_random_action
+                #if not self.has_done_random: 
+                #    print(self.action_index)
+                self.has_done_random = True
+                self.do_action(choice)
 
-            if d < 7 * TOL_CHECKPOINT:
-                self.remember_random = CONSECUTIVE_STEPS
-            else:
-                self.remember_random = CONSECUTIVE_STEPS // 2
-            self.remember_random_action = choice
+                if d < 7 * TOL_CHECKPOINT:
+                    self.remember_random = CONSECUTIVE_STEPS
+                else:
+                    self.remember_random = CONSECUTIVE_STEPS // 2
+                self.remember_random_action = choice
 
-        else:            
-            if not self.accelerating:
-                self.on_press_key_up()
-
-            if d > 2*TOL_CHECKPOINT:
-                self.on_release_key_down()
-                self.on_press_key_up()
-
-                # če ne dela naključne poteze, upošteva hevristiko
+            else:            
+                if not self.accelerating:
+                    self.on_press_key_up()
+                    # če ne dela naključne poteze, upošteva hevristiko
                 angle_dif = (self.angle_of_checkpoint() - self.angle) % 360
                 #print(angle_dif)
                 if abs(angle_dif) > ANGLE_SPEED:
@@ -204,7 +209,12 @@ class Player(arcade.Sprite):
                 else:
                     self.on_release_key_left()
                     self.on_release_key_right()
-
+        else:
+            if action:
+                self.do_action(action)
+            if d > 2*TOL_CHECKPOINT:
+                    self.on_release_key_down()
+                    self.on_press_key_up()
             elif d > TOL_CHECKPOINT:
                 if random.random() > ALPHA_BRAKE:
                     self.on_release_key_up()
@@ -227,23 +237,23 @@ class Player(arcade.Sprite):
     def get_action(self):
         up_down = ""
         if self.accelerating:
-            up_down =  "W"
+            up_down =  "U"
         elif self.braking:
-            up_down = "S"
+            up_down = "D"
         
         left_right = ""
         if self.change_angle == -ANGLE_SPEED:
-            left_right = "D"
+            left_right = "R"
         elif self.change_angle == ANGLE_SPEED:
-            left_right = "A"
+            left_right = "L"
         
         return left_right
     def do_action(self, action):
-        if action == "D":
+        if action == "R":
             self.on_press_key_right()
-        elif action == "A":
+        elif action == "L":
             self.on_press_key_left()
-        elif action == "S":
+        elif action == "D":
             self.on_press_key_down()
         else:
             self.on_release_key_down()
