@@ -1,3 +1,4 @@
+from collections import deque
 import os
 import pickle
 import time
@@ -14,6 +15,100 @@ from shapely.geometry import LineString, Polygon  # type: ignore
 from smartdriver.constants import *
 from smartdriver.player import Player
 from smartdriver.track import Track
+import random
+import tensorflow as tf
+import numpy as np
+from tensorflow import keras
+
+
+epsilon = 1 # Epsilon-greedy algorithm in initialized at 1 meaning every step is random at the start
+max_epsilon = 1 # You can't explore more than 100% of the time
+min_epsilon = 0.01 # At a minimum, we'll always explore 1% of the time
+decay = 0.01
+
+observation_shape = 2
+action_shape = 3
+
+actions = ["D","A", ""]
+
+train_episodes = 300
+test_episodes = 100
+
+
+def get_action_ind(action):
+    if action == "D":
+        return 0
+    elif action == "A":
+        return 1
+    else:
+        return 2
+
+def encode_observation(observation, n_dims):
+    return observation
+
+def train_model( replay_memory, model, target_model, done):
+    learning_rate = 0.7 # Learning rate
+    discount_factor = 0.618
+
+    MIN_REPLAY_SIZE = 1000
+    #if len(replay_memory) < MIN_REPLAY_SIZE:
+    #    return
+
+    #print(replay_memory)
+    batch_size = 4
+    mini_batch = random.sample(replay_memory, batch_size)
+    current_states = np.array([encode_observation(transition[0], 2) for transition in mini_batch])
+
+    current_states /= 1000
+    current_qs_list = model.predict(current_states)
+    
+    new_current_states = np.array([encode_observation(transition[3], 2) for transition in mini_batch])
+    new_current_states /= 1000
+
+    future_qs_list = target_model.predict(new_current_states)
+
+    X = []
+    Y = []
+    for index, (observation, action, reward, new_observation, done) in enumerate(mini_batch):
+        if not done:
+            max_future_q = reward + discount_factor * np.max(future_qs_list[index])
+        else:
+            max_future_q = reward
+
+        current_qs = current_qs_list[index]
+        ind = get_action_ind(action)
+        current_qs[ind] = (1 - learning_rate) * current_qs[ind] + learning_rate * max_future_q
+
+        X.append(encode_observation(observation, 2))
+        Y.append(current_qs)
+    model.fit(np.array(X), np.array(Y), batch_size=batch_size, verbose=0, shuffle=True)
+
+
+
+def agent(state_shape, action_shape):
+    """ The agent maps X-states to Y-actions
+    e.g. The neural network output is [.1, .7, .1, .3]
+    The highest value 0.7 is the Q-Value.
+    The index of the highest action (0.7) is action #1.
+    """
+    learning_rate = 0.001
+    init = tf.keras.initializers.HeUniform()
+    model = keras.Sequential()
+    model.add(keras.Input(shape=state_shape))
+    model.add(keras.layers.Dense(24, input_dim=state_shape, activation='relu', kernel_initializer=init))
+    model.add(keras.layers.Dense(12, activation='relu', kernel_initializer=init))
+    model.add(keras.layers.Dense(action_shape, activation='linear', kernel_initializer=init))
+    model.compile(loss=tf.keras.losses.Huber(), optimizer=tf.keras.optimizers.Adam(lr=learning_rate), metrics=['accuracy'])
+    return model
+
+
+# 300, 400
+def get_reward(observation):
+    sum_score = observation[0] 
+    return 1/sum_score
+
+    
+
 
 
 class MyGame(arcade.Window):
@@ -70,6 +165,32 @@ class MyGame(arcade.Window):
             arcade.set_background_color(arcade.color.BLACK)
             arcade.draw_text("Learning", width//8, height//8+20, TRACK_COLOR_PASSED, font_size=20, anchor_x="center")
 
+
+         
+         # 1. Initialize the Target and Main models
+        # Main Model (updated every 4 steps)
+        model = agent((observation_shape,), action_shape)
+        # Target Model (updated every 100 steps)
+        target_model = agent((observation_shape,), action_shape)
+        target_model.set_weights(model.get_weights())
+
+        replay_memory = deque(maxlen=50_000)
+
+
+
+
+        self.steps_to_update_target_model = 0
+
+
+        self.model = model
+        self.replay_memory = replay_memory
+        self.total_training_rewards = 0
+        self.target_model = target_model
+
+        self.episode = 1 
+
+        #self.epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay * self.episode)
+
     def setup(self):
         """ Set up the game and initialize the variables. """
         
@@ -106,6 +227,9 @@ class MyGame(arcade.Window):
         self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, self.verbose)
         self.player_list.append(self.player_sprite)
 
+        self.observation = self.player_sprite.states()
+        self.epsilon = 1
+    
 
     @staticmethod
     def objects_in_line(point_1: Point,
@@ -170,67 +294,89 @@ class MyGame(arcade.Window):
         if not self.pause:
             self.num_steps_made += 1
             if self.player_list[0].smart:
-                if not self.player_list[0].next_move_and_update():
-                    self.pause = True
-                    self.finished = True
-                    
-                    if not self.best_actions:
-                        self.best_actions = self.player_sprite.actions
+                if self.train:
+                    self.steps_to_update_target_model += 1
 
-                    print("Train iteration: ", self.train_iteration)
-                    if len(self.player_sprite.actions) < len(self.best_actions):
-                        print("YES!",len(self.player_sprite.actions))
-                        self.best_actions = self.player_sprite.actions
-                        with open('best.pkl', 'wb') as f:
-                            pickle.dump(self.best_actions, f)
+                    model = self.model
+                    replay_memory = self.replay_memory
+                    observation = self.observation
+                    total_training_rewards = self.total_training_rewards
+                    steps_to_update_target_model = self.steps_to_update_target_model
+                    target_model = self.target_model
+
+                    random_number = np.random.rand()
+                    # 2. Explore using the Epsilon Greedy Exploration Strategy
+                    if random_number <= self.epsilon:
+                        # Explore
+                        action = random.choice(actions)
+                        is_prediction = False
                     else:
-                        print("TRY AGAIN", len(self.player_sprite.actions))
+                        # Exploit best known action
+                        # model dims are (batch, env.observation_space.n)
+                        is_prediction = True
+
+                        encoded_reshaped = np.array((self.player_sprite.states(),)) / 1000
+                        predicted = model.predict(encoded_reshaped).flatten()
+                        print(f"predicted {predicted}")
+
+                        action = actions[np.argmax(predicted)]
+                        
                     
+
+                    #new_observation, reward, done, info = env.step(action)
+                    is_not_finished = self.player_list[0].next_move_and_update(action)
+                    self.finished = not is_not_finished
+                    new_observation = self.player_sprite.states()
+                    reward = get_reward(new_observation)
+
+                    print(f"observation: {observation} action: {action} reward: {reward}, new_observation: {new_observation} is_prediction {is_prediction}")
+                    replay_memory.append([observation, action, reward, new_observation, self.finished])
+
+                    # 3. Update the Main Network using the Bellman Equation
+                    if steps_to_update_target_model % 4 == 0 or self.finished:
+                        print("jo")
+                        train_model(replay_memory, model, target_model, self.finished)
+
+
+                    observation = new_observation
+                    total_training_rewards += reward
+
+                    if self.finished:
+                        print('Total training rewards: {} after n steps = {} with final reward = {}'.format(total_training_rewards, self.episode, reward))
+                        total_training_rewards += 1
+
+                        if steps_to_update_target_model >= 100:
+                            print('Copying main network weights to the target network weights')
+                            target_model.set_weights(model.get_weights())
+                            steps_to_update_target_model = 0
+
+                        self.pause = True
+
+                        
+                    self.model = model
+                    self.replay_memory = replay_memory
+                    self.observation = observation
+                    self.total_training_rewards = total_training_rewards
+                    self.steps_to_update_target_model = steps_to_update_target_model
+                    self.target_model = target_model
+
+                    self.epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay * self.episode)
+                    print(self.epsilon)
+                    self.episode += 1 
+                    
+
+                    print("Train iteration: ", self.train_iteration)                    
                     self.train_iteration += 1
                     
-
-                    if self.train:
-                        self.finished = False
-                        self.pause = False
-                        self.setup()
-                        self.player_sprite.recorded_actions = self.best_actions
-                        self.player_sprite.action_index = 0
-                        self.num_steps_made = 0
                     
             else:
                 if not self.player_list[0].update():
                     self.pause = True
                     self.finished = True
-
-        
-        '''
-        def komentar():
-            TRACK_WIDTH = 15
-            WHITE = (255,255,255)
-
-            main_points = ((100, 100), (2000, 200))
             
             
-            def track_points(point):
-                
-                return ((point[0], point[1] + TRACK_WIDTH), (point[0] , point[1] - TRACK_WIDTH))
 
-            main_points = list(map(track_points, main_points))
 
-            #self.view_left += 2
-            
-            #arcade.set_viewport(self.view_left, SCREEN_WIDTH + self.view_left, 0, SCREEN_HEIGHT)
-            #for i, element in enumerate(main_points[:-1]):
-            #    
-            #    arcade.draw_line(element[0][0], element[0][1], main_points[i][0][0], main_points[i][0][1], WHITE)
-            #    arcade.draw_line(element[0][0], element[0][1], main_points[i][0][0], main_points[i][0][1], WHITE)
-
-            #arcade.draw_line(150, 100, 350, 100, WHITE, line_width=3)
-
-            #points = list(range(100))
-            #points = list(zip(points,points)) 
-            #arcade.draw_points(points, color=(255,255,255))
-        '''
 
 
     def on_key_press(self, key, modifiers):

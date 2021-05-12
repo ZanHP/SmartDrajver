@@ -114,7 +114,16 @@ class Player(arcade.Sprite):
 
         #print(self.angle_of_checkpoint())
         #print('angle:',self.angle)
-        
+
+    def states(self):
+        return self.distance_to_next_checkpoint(), self.distance_to_nn_checkpoint()
+    
+    def distance_to_nn_checkpoint(self):
+        x, y = self.center_x, self.center_y
+        nc = self.track.checkpoints[self.next_checkpoint + 1]
+        res = ((x-nc[0])**2 + (y-nc[1])**2)**0.5
+        return res
+
 
     def distance_to_next_checkpoint(self):
         x, y = self.center_x, self.center_y
@@ -140,7 +149,7 @@ class Player(arcade.Sprite):
         else:
             return temp_angle
 
-    def next_move_and_update(self, rand=False):
+    def next_move_and_update(self, action=None, rand=False):
         
         
 
@@ -156,35 +165,8 @@ class Player(arcade.Sprite):
                 else:
                     self.on_press_key_left()
         else:
-            rand_val = random.random()
-            if self.recorded_actions and not self.has_done_random and rand_val >= ALPHA:
-                self.do_action(self.recorded_actions[self.action_index])
-                self.action_index += 1
-            
-            elif self.remember_random != 0:
-                self.remember_random = self.remember_random -1 
-                self.do_action(self.remember_random_action)
-
-            elif rand_val < ALPHA: #or self.remember_random:
-                choices = ["D","A",""]
-                choice = random.choice(choices) #if not self.remember_random else self.remember_random_action
-                self.has_done_random = True
-                self.do_action(choice)
-
-                self.remember_random = CONSECUTIVE_STEPS
-                self.remember_random_action = choice
-
-            else:
-                angle_dif = (self.angle_of_checkpoint() - self.angle) % 360
-                #print(angle_dif)
-                if abs(angle_dif) > ANGLE_SPEED:
-                    if angle_dif < 180:
-                        self.on_press_key_left()
-                    else:
-                        self.on_press_key_right()
-                else:
-                    self.on_release_key_left()
-                    self.on_release_key_right()
+            if action:
+                self.do_action(action)
 
 
     
