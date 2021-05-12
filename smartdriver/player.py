@@ -11,7 +11,7 @@ import random
 class Player(arcade.Sprite):
     """ Player class """
     
-    def __init__(self, image, scale, start, track, smart=False, best_run=np.Inf, state_actions_dict=defaultdict(), verbose=False):
+    def __init__(self, image, scale, start, track, smart=False, best_run=np.Inf, verbose=False):
         """ Set up the player """
 
         # Call the parent init
@@ -38,7 +38,6 @@ class Player(arcade.Sprite):
         self.remember_random_action = ""
 
         self.best_run = best_run
-        self.state_actions_dict = state_actions_dict
 
         self.accelerating = False
         self.braking = False
@@ -131,8 +130,9 @@ class Player(arcade.Sprite):
         #print(self.angle_of_checkpoint())
         #print('angle:',self.angle)
 
-    def states(self):
-        return self.distance_to_next_checkpoint(), self.distance_to_nn_checkpoint()
+    def get_current_state(self):
+        angle_dif_to_next_checkpoint = (self.angle_of_checkpoint() - self.angle) % 360 - 180
+        return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint
     
     def distance_to_nn_checkpoint(self):
         x, y = self.center_x, self.center_y
