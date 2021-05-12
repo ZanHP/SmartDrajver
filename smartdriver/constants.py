@@ -29,6 +29,6 @@ TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.5, 0
 TRACK2 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.3, 0.9], [0.4,0.3], [0.9,0.5],[0.1,0.1]]))
 
 
-ALPHA = 0.04
-ALPHA_BRAKE = 0.3
-CONSECUTIVE_STEPS = 5
+ALPHA = 0.1
+ALPHA_BRAKE = 0.8
+CONSECUTIVE_STEPS = 2

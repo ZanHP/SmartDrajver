@@ -1,6 +1,7 @@
 import os
 import pickle
 import time
+from collections import defaultdict
 
 import arcade
 import numpy as np
@@ -41,11 +42,11 @@ class MyGame(arcade.Window):
         self.finished = False
 
         self.best_actions = []
-
+        self.state_actions_dict = defaultdict()
 
         # ce zelis pogledati simulacijo
-        dbfile = open('smartdriver/best.pkl', 'rb')     
-        self.best_actions = pickle.load(dbfile)
+        #dbfile = open('smartdriver/best.pkl', 'rb')     
+        #self.best_actions, self.state_actions_dict = pickle.load(dbfile)
 
 
         self.train = train
@@ -72,36 +73,33 @@ class MyGame(arcade.Window):
         """ Set up the game and initialize the variables. """
         
         '''
+        def komentar():
+            used for measuring distance to the wall
+            # Sprite lists
 
-        used for measuring distance to the wall
-        # Sprite lists
+            
+            
+            TRACK2 = [(300,100),(300,600),(900,600),(900,100),(300,100)]
 
-        
-        
-        TRACK2 = [(300,100),(300,600),(900,600),(900,100),(300,100)]
+            img = Image.new("RGB", (200, 200), (255, 255, 255))
+            img.save("/tmp/image.png", "PNG")
+            self.wall_list = arcade.SpriteList(use_spatial_hash=True)
 
-        img = Image.new("RGB", (200, 200), (255, 255, 255))
-        img.save("/tmp/image.png", "PNG")
-        self.wall_list = arcade.SpriteList(use_spatial_hash=True)
+            self.sprite = arcade.Sprite("/tmp/image.png")
 
-        self.sprite = arcade.Sprite("/tmp/image.png")
+            self.sprite.center_x = 300
+            self.sprite.center_y = 750
 
-        self.sprite.center_x = 300
-        self.sprite.center_y = 750
-
-        self.wall_list.append(self.sprite)
-        start_point = (300, 200)
+            self.wall_list.append(self.sprite)
+            start_point = (300, 200)
         '''
         self.player_list = arcade.SpriteList()
 
-
-
         # Set up the track
         self.track = Track(TRACK1)
-        
 
         # Set up the player
-        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, best_run=len(self.best_actions) if self.best_actions else np.Inf, verbose=self.verbose)
+        self.player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, best_run=len(self.best_actions) if self.best_actions else np.Inf, state_actions_dict=self.state_actions_dict.copy(), verbose=self.verbose)
         self.player_list.append(self.player_sprite)
 
 
@@ -157,9 +155,12 @@ class MyGame(arcade.Window):
         #print(self.player_list[0])
         if not self.pause:
             self.num_steps_made += 1
+
             if self.player_list[0].smart:
                 info_about_move = self.player_list[0].next_move_and_update()
+
                 if info_about_move == False:
+                    # če je prišel do konca
                     self.pause = True
                     self.finished = True
                     
@@ -170,8 +171,9 @@ class MyGame(arcade.Window):
                     if len(self.player_sprite.actions) < len(self.best_actions):
                         print("YES!",len(self.player_sprite.actions))
                         self.best_actions = self.player_sprite.actions
-                        with open('best.pkl', 'wb') as f:
-                            pickle.dump(self.best_actions, f)
+                        self.state_actions_dict = self.player_sprite.state_actions_dict
+                        with open('best1.pkl', 'wb') as f:
+                            pickle.dump([self.best_actions, self.state_actions_dict], f)
                     else:
                         print("TRY AGAIN", len(self.player_sprite.actions))
                     
@@ -185,6 +187,7 @@ class MyGame(arcade.Window):
                         self.player_sprite.action_index = 0
                         self.num_steps_made = 0
                 elif info_about_move == None:
+                    # če je bilo prekoračeno število korakov
                     print("Train iteration: ", self.train_iteration)
                     print("TRY AGAIN")
                     if self.train:

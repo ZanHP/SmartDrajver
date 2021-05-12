@@ -4,13 +4,14 @@ import numpy as np
 import arcade
 
 from smartdriver.constants import *
-from smartdriver.track import Track
+
+from collections import defaultdict
 import random
 
 class Player(arcade.Sprite):
     """ Player class """
     
-    def __init__(self, image, scale, start, track, smart=False, best_run=np.Inf, verbose=False):
+    def __init__(self, image, scale, start, track, smart=False, best_run=np.Inf, state_actions_dict=defaultdict(), verbose=False):
         """ Set up the player """
 
         # Call the parent init
@@ -37,6 +38,7 @@ class Player(arcade.Sprite):
         self.remember_random_action = ""
 
         self.best_run = best_run
+        self.state_actions_dict = state_actions_dict
 
         self.accelerating = False
         self.braking = False
@@ -66,6 +68,7 @@ class Player(arcade.Sprite):
             return None
 
         self.actions.append(self.get_action())
+        #self.state_actions_dict[self.get_state()]
         
         if self.accelerating:
             speed_temp = (self.speed + ACCELERATION_UNIT)
@@ -90,17 +93,20 @@ class Player(arcade.Sprite):
         x_temp = self.center_x + self.speed * (-math.sin(speed_angle_rad))
         y_temp = self.center_y + self.speed * math.cos(speed_angle_rad)
         if x_temp < 0:
-            self.center_x = 0
+            self.change_x = 0 - self.center_x
         elif x_temp > SCREEN_WIDTH:
-            self.center_x = SCREEN_WIDTH
+            self.change_x = SCREEN_WIDTH - self.center_x
         else:
-            self.center_x = x_temp
+            self.change_x = x_temp - self.center_x
         if y_temp < 0:
-            self.center_y = 0
+            self.change_y = 0 - self.center_y
         elif y_temp > SCREEN_HEIGHT:
-            self.center_y = SCREEN_HEIGHT
+            self.change_y = SCREEN_HEIGHT - self.center_y
         else:
-            self.center_y = y_temp
+            self.change_y = y_temp - self.center_y
+        
+        self.center_x += self.change_x
+        self.center_y += self.change_y
 
         if self.verbose:
             self.print_self()
@@ -155,32 +161,34 @@ class Player(arcade.Sprite):
 
     def next_move_and_update(self):
         rand_val = random.random()
-        #if self.recorded_actions and not self.has_done_random and rand_val >= ALPHA:
+        d = self.distance_to_next_checkpoint()
+        if self.recorded_actions and not self.has_done_random and rand_val >= ALPHA:
             # gre po stari najboljši poti
-            #self.do_action(self.recorded_actions[self.action_index])
-            #self.action_index += 1
+            self.do_action(self.recorded_actions[self.action_index])
+            self.action_index += 1
         
         if self.remember_random != 0:
             self.remember_random -= 1 
             self.do_action(self.remember_random_action)
 
         elif rand_val < ALPHA: #or self.remember_random:
-            choices = ["D","A",""]
+            choices = ["D","A","S",""]
             choice = random.choice(choices) #if not self.remember_random else self.remember_random_action
             #if not self.has_done_random: 
             #    print(self.action_index)
             self.has_done_random = True
             self.do_action(choice)
 
-            self.remember_random = CONSECUTIVE_STEPS
+            if d < 7 * TOL_CHECKPOINT:
+                self.remember_random = CONSECUTIVE_STEPS
+            else:
+                self.remember_random = CONSECUTIVE_STEPS // 2
             self.remember_random_action = choice
 
-        else:
-            
-            #if not self.accelerating:
-             #   self.on_press_key_up()
-            
-            d = self.distance_to_next_checkpoint()
+        else:            
+            if not self.accelerating:
+                self.on_press_key_up()
+
             if d > 2*TOL_CHECKPOINT:
                 self.on_release_key_down()
                 self.on_press_key_up()
@@ -235,7 +243,10 @@ class Player(arcade.Sprite):
             self.on_press_key_right()
         elif action == "A":
             self.on_press_key_left()
+        elif action == "S":
+            self.on_press_key_down()
         else:
+            self.on_release_key_down()
             self.on_release_key_left()
             self.on_release_key_right()
 
