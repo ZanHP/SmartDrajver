@@ -3,7 +3,7 @@ from smartdriver.constants import *
 import tensorflow as tf
 import numpy as np
 from tensorflow import keras
-import random
+#import random
 
 epsilon = 1 # Epsilon-greedy algorithm in initialized at 1 meaning every step is random at the start
 max_epsilon = 1 # You can't explore more than 100% of the time
@@ -22,8 +22,8 @@ class Agent():
         self.train_iteration = 0
         self.steps_to_update_target_model = 0
         self.epsilon = 1
-        self.actions = ["R","L", ""]
-
+        self.actions = ["U", "D", "L", "R"]
+        
     def do_training_step(self):
         self.steps_to_update_target_model += 1
 
@@ -34,11 +34,13 @@ class Agent():
         steps_to_update_target_model = self.steps_to_update_target_model
         target_model = self.target_model
 
-        random_number = np.random.rand()
+        random_number = np.random.random()
         # 2. Explore using the Epsilon Greedy Exploration Strategy
         if random_number <= self.epsilon:
             # Explore
-            action = random.choice(self.actions)
+            action = np.random.choice(self.actions)
+            #action = "U"
+            #print("FASFASF")
             is_prediction = False
         else:
             # Exploit best known action
@@ -110,12 +112,7 @@ class Agent():
         self.train_iteration += 1
 
     def get_action_ind(self, action):
-        if action == "R":
-            return 0
-        elif action == "L":
-            return 1
-        else:
-            return 2
+        return np.where(self.actions == action)
 
     def encode_state(self, state, n_dims):
         return state
@@ -124,13 +121,14 @@ class Agent():
         learning_rate = 0.3 # Learning rate
         discount_factor = 0.9
 
-        MIN_REPLAY_SIZE = 100
+        MIN_REPLAY_SIZE = 500
         if len(replay_memory) < MIN_REPLAY_SIZE:
             return None
 
         #print(replay_memory)
         batch_size = 64
-        mini_batch = random.sample(replay_memory, batch_size)
+        mini_batch_inds = np.random.randint(len(replay_memory), size=batch_size)
+        mini_batch = np.array(replay_memory)[mini_batch_inds]
 
         # stanja iz trenutnega batcha
         current_states = np.array([self.encode_state(transition[0], 2) for transition in mini_batch])
@@ -172,8 +170,8 @@ class Agent():
         init = tf.keras.initializers.HeUniform()
         model = keras.Sequential()
         model.add(keras.Input(shape=state_shape))
-        model.add(keras.layers.Dense(24, input_dim=state_shape, activation='relu', kernel_initializer=init))
-        model.add(keras.layers.Dense(12, activation='relu', kernel_initializer=init))
+        model.add(keras.layers.Dense(64, input_dim=state_shape, activation='relu', kernel_initializer=init))
+        model.add(keras.layers.Dense(42, activation='relu', kernel_initializer=init))
         model.add(keras.layers.Dense(action_shape, activation='linear', kernel_initializer=init))
         model.compile(loss=tf.keras.losses.Huber(), optimizer=tf.keras.optimizers.Adam(lr=learning_rate), metrics=['accuracy'])
         return model
@@ -183,10 +181,10 @@ class Agent():
     def get_reward(self, state):
         distance, angle = state
         reward_distance = np.exp(-(distance - TOL_CHECKPOINT))
-        reward_angle = (180 - abs(angle))/180
+        reward_angle = np.exp(-10*(1 - (180 - abs(angle))/180))
         reward = reward_distance + reward_angle
         #print("angle, reward_angle:", round(angle,2),",", round(reward_angle,2))
         print("state:", list(map(lambda x : round(x,2), state)))
-        print("stRew:", list(map(lambda x : round(x,2), [np.exp(-(distance - TOL_CHECKPOINT)), (180 - abs(angle))/180])))
+        print("stRew:", list(map(lambda x : round(x,2), [reward_distance, reward_angle])))
         #print("reward:",round(reward,4))
         return reward

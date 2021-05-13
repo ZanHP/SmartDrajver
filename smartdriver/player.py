@@ -215,14 +215,15 @@ class Player(arcade.Sprite):
         else:
             if action:
                 self.do_action(action)
-            if d > 2*TOL_CHECKPOINT:
+            
+            elif d > 2*TOL_CHECKPOINT:
                     self.on_release_key_down()
                     self.on_press_key_up()
             elif d > TOL_CHECKPOINT:
-                if random.random() > ALPHA_BRAKE:
+                if np.random.random() > ALPHA_BRAKE:
                     self.on_release_key_up()
                     self.on_press_key_down()
-
+            '''
                 # če ne dela naključne poteze, upošteva hevristiko
                 angle_dif = (self.angle_of_checkpoint(plus_one=1) - self.angle) % 360
                 #print(angle_dif)
@@ -234,6 +235,7 @@ class Player(arcade.Sprite):
                 else:
                     self.on_release_key_left()
                     self.on_release_key_right()
+            '''
             
         return self.update()
 
@@ -251,6 +253,7 @@ class Player(arcade.Sprite):
             left_right = "L"
         
         return left_right
+
     def do_action(self, action):
         if action == "R":
             self.on_press_key_right()
@@ -258,10 +261,13 @@ class Player(arcade.Sprite):
             self.on_press_key_left()
         elif action == "D":
             self.on_press_key_down()
+        elif action == "U":
+            self.on_press_key_up()
         else:
             self.on_release_key_down()
             self.on_release_key_left()
             self.on_release_key_right()
+            self.on_release_key_up()
 
     def on_press_key_up(self):
         self.accelerating = True
