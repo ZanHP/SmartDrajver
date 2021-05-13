@@ -101,8 +101,8 @@ class MyGame(arcade.Window):
         if key == arcade.key.R:
             self.setup()
 
-            self.player_sprite.recorded_actions = self.best_actions
-            self.player_sprite.action_index = 0
+            #self.player_sprite.recorded_actions = self.best_actions
+            #self.player_sprite.action_index = 0
 
             self.num_steps_made = 0
             self.pause = True

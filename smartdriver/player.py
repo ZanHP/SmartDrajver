@@ -21,8 +21,8 @@ class Player(arcade.Sprite):
         #self.show = show
         self.smart = smart
 
-        self.center_x = start[0]
-        self.center_y = start[1]
+        self.center_x = self.track.checkpoints[0][0]
+        self.center_y = self.track.checkpoints[0][1]
         #self.center_x_noShow = self.center_x
         #self.center_y_noShow = self.center_y
         self.verbose = verbose
@@ -62,11 +62,11 @@ class Player(arcade.Sprite):
             #self.print_self()
             print(self)
 
-        if len(self.actions) > self.best_run:
-            print(self.best_run, len(self.recorded_actions))
-            return None
+        #if len(self.actions) > self.best_run:
+        #    print(self.best_run, len(self.recorded_actions))
+        #    return None
 
-        self.actions.append(self.get_action())
+        #self.actions.append(self.get_action())
         #self.state_actions_dict[self.get_state()]
         
         if self.accelerating:
@@ -131,7 +131,10 @@ class Player(arcade.Sprite):
         #print('angle:',self.angle)
 
     def get_current_state(self):
-        angle_dif_to_next_checkpoint = (self.angle_of_checkpoint() - self.angle) % 360 - 180
+        print("angle_of_checkpoint:",self.angle_of_checkpoint())
+        print("self.angle:", self.angle)
+        angle_dif_to_next_checkpoint = (self.angle_of_checkpoint() - self.angle + 180) % 360 - 180
+        print("angle_dif_to_next_checkpoint:", angle_dif_to_next_checkpoint)
         return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint
     
     def distance_to_nn_checkpoint(self):
