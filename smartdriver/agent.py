@@ -8,28 +8,33 @@ import random
 epsilon = 1 # Epsilon-greedy algorithm in initialized at 1 meaning every step is random at the start
 max_epsilon = 1 # You can't explore more than 100% of the time
 min_epsilon = 0.01 # At a minimum, we'll always explore 1% of the time
-decay = 0.001
+
 
 class Agent():
     def __init__(self, player_sprite, state_shape, action_shape):
-        self.actions = ["L", "R", "U", ]
+        self.actions = ["L", "R", "U", "D"]
         self.player_sprite = player_sprite
         self.state_shape = state_shape
         self.model = self.init_model(self.state_shape, len(self.actions))
         self.target_model = self.init_model(state_shape, len(self.actions))
-        self.replay_memory = deque(maxlen=50_000)
+        self.min_replay_size = 200
+        self.max_replay_size = 3*self.min_replay_size
+        self.replay_memory = deque(maxlen=self.max_replay_size)
         self.finished = False
         self.total_training_rewards = 0
         self.episode = 1
         self.train_iteration = 0
         self.steps_to_update_target_model = 0
         self.epsilon = 1
+        self.decay = 0.0004
 
         self.learning_rate = 0.3 # Learning rate
         self.discount_factor = 0.9
 
-        self.MIN_REPLAY_SIZE = 100
-        self.batch_size = 64
+        
+        self.batch_size = 128
+
+
         
         
     def do_training_step(self):
@@ -110,13 +115,16 @@ class Agent():
 
             
         self.model = model
-        self.replay_memory = replay_memory
+        if len(replay_memory) > self.max_replay_size:
+            self.replay_memory = random.sample(replay_memory, self.min_replay_size)
+        else:
+            self.replay_memory = replay_memory
         
         
         self.steps_to_update_target_model = steps_to_update_target_model
         self.target_model = target_model
 
-        self.epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay * self.episode)
+        self.epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-self.decay * self.episode)
         print("epsilon:", round(self.epsilon,2))
         self.episode += 1 
         
@@ -135,7 +143,7 @@ class Agent():
         #discount_factor = 0.9
 
         #MIN_REPLAY_SIZE = 100
-        if len(replay_memory) < self.MIN_REPLAY_SIZE:
+        if len(replay_memory) < self.min_replay_size:
             return None
 
         #print(replay_memory)
@@ -176,7 +184,7 @@ class Agent():
 
     def train_main_model(self):
         # vir: https://theaisummer.com/Taking_Deep_Q_Networks_a_step_further/
-        if len(self.replay_memory) < self.MIN_REPLAY_SIZE:
+        if len(self.replay_memory) < self.min_replay_size:
             return
 
         batch_size = min(self.batch_size, len(self.replay_memory))
@@ -215,7 +223,7 @@ class Agent():
         The highest value 0.7 is the Q-Value.
         The index of the highest action (0.7) is action #1.
         """
-        learning_rate = 0.01
+        learning_rate = 0.001
         init = tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.05, seed=RANDOM_SEED)
         model = keras.Sequential()
         model.add(keras.Input(shape=state_shape))
@@ -223,7 +231,7 @@ class Agent():
         #model.add(keras.layers.Dense(24, input_dim=state_shape, activation='relu', kernel_initializer=init))
         #model.add(keras.layers.Dense(12, activation='relu', kernel_initializer=init))
         model.add(keras.layers.Dense(action_shape, activation='linear', kernel_initializer=init))
-        model.compile(loss="rms", optimizer=tf.keras.optimizers.Adam(lr=learning_rate), metrics=['accuracy'])
+        model.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(lr=learning_rate), metrics=['accuracy'])
         #model.compile(optimizer=tf.keras.optimizers.Adam(lr=learning_rate))
         return model
 
