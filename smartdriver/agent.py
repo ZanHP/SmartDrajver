@@ -3,7 +3,7 @@ from smartdriver.constants import *
 import tensorflow as tf
 import numpy as np
 from tensorflow import keras
-#import random
+import random
 
 epsilon = 1 # Epsilon-greedy algorithm in initialized at 1 meaning every step is random at the start
 max_epsilon = 1 # You can't explore more than 100% of the time
@@ -14,7 +14,8 @@ class Agent():
     def __init__(self, player_sprite, state_shape, action_shape):
         self.actions = ["L", "R", "U", ]
         self.player_sprite = player_sprite
-        self.model = self.init_model(state_shape, len(self.actions))
+        self.state_shape = state_shape
+        self.model = self.init_model(self.state_shape, len(self.actions))
         self.target_model = self.init_model(state_shape, len(self.actions))
         self.replay_memory = deque(maxlen=50_000)
         self.finished = False
@@ -23,6 +24,12 @@ class Agent():
         self.train_iteration = 0
         self.steps_to_update_target_model = 0
         self.epsilon = 1
+
+        self.learning_rate = 0.3 # Learning rate
+        self.discount_factor = 0.9
+
+        self.MIN_REPLAY_SIZE = 100
+        self.batch_size = 64
         
         
     def do_training_step(self):
@@ -77,7 +84,7 @@ class Agent():
             # 3. Update the Main Network using the Bellman Equation
             if steps_to_update_target_model % 4 == 0 or self.finished:
                 #print("jo")
-                self.train_model(replay_memory, self.finished)
+                self.train_main_model()#replay_memory, self.finished)
             self.state = new_state
             self.total_training_rewards += reward
 
@@ -123,23 +130,24 @@ class Agent():
     def encode_state(self, state, n_dims):
         return state
 
-    def train_model(self, replay_memory, done):
-        learning_rate = 0.3 # Learning rate
-        discount_factor = 0.9
+    def train_model2(self, replay_memory, done):
+        #learning_rate = 0.3 # Learning rate
+        #discount_factor = 0.9
 
-        MIN_REPLAY_SIZE = 100
-        if len(replay_memory) < MIN_REPLAY_SIZE:
+        #MIN_REPLAY_SIZE = 100
+        if len(replay_memory) < self.MIN_REPLAY_SIZE:
             return None
 
         #print(replay_memory)
         batch_size = 64
-        mini_batch_inds = np.random.randint(len(replay_memory), size=batch_size)
-        mini_batch = np.array(replay_memory)[mini_batch_inds]
+        #mini_batch_inds = np.random.randint(len(replay_memory), size=batch_size)
+        #mini_batch = np.array(replay_memory)[mini_batch_inds]
+        mini_batch = random.sample(replay_memory, batch_size)
 
         # stanja iz trenutnega batcha
         current_states = np.array([self.encode_state(transition[0], 2) for transition in mini_batch])
 
-        # napovedi Q za stanja i-te iteracije (z dodatnim modelom)
+        # napovedi Q za stanja i-te iteracije (z glavnim modelom)
         current_qs_list = self.model.predict(current_states)
         
         # stanja 1 korak naprej
@@ -153,18 +161,52 @@ class Agent():
         for index, (state, action, reward, new_state, done) in enumerate(mini_batch):
             # max_future_q predstavlja target
             if not done:
-                max_future_q = reward + discount_factor * np.amax(future_qs_list[index])
+                max_future_q = reward + self.discount_factor * np.amax(future_qs_list[index])
             else:
                 max_future_q = reward
 
             current_qs = current_qs_list[index]
             action_ind = self.get_action_ind(action)
-            current_qs[action_ind] = (1 - learning_rate) * current_qs[action_ind] + learning_rate * max_future_q
+            current_qs[action_ind] = (1 - self.learning_rate) * current_qs[action_ind] + self.learning_rate * max_future_q
 
             X.append(self.encode_state(state, 2))
             Y.append(current_qs)
         self.model.fit(np.array(X), np.array(Y), batch_size=batch_size, verbose=0, shuffle=True)
 
+
+    def train_main_model(self):
+        # vir: https://theaisummer.com/Taking_Deep_Q_Networks_a_step_further/
+        if len(self.replay_memory) < self.MIN_REPLAY_SIZE:
+            return
+
+        batch_size = min(self.batch_size, len(self.replay_memory))
+        mini_batch = random.sample(self.replay_memory, batch_size)
+
+        current_states = np.zeros((batch_size, self.state_shape[0]))
+        next_states = np.zeros((batch_size, self.state_shape[0]))
+        action, reward, done = [], [], []
+        
+        for i in range(batch_size):
+            current_states[i] = mini_batch[i][0]
+            action.append(mini_batch[i][1])
+            reward.append(mini_batch[i][2])
+            next_states[i] = mini_batch[i][3]
+            done.append(mini_batch[i][4])
+
+        current_Qs_main = self.model.predict(current_states)
+        next_Qs_main = self.model.predict(next_states) #DQN
+        next_Qs_target = self.target_model.predict(next_states) #Target model
+
+        for i in range(self.batch_size):
+            if done[i]:
+                current_Qs_main[i][action[i]] = reward[i]
+            else:
+                # selection of action is from model
+                # update is from target model
+                action_ind = np.argmax(next_Qs_main[i])
+                #print("action[i]",action[i])
+                current_Qs_main[i][self.get_action_ind(action[i])] = reward[i] + self.discount_factor * (next_Qs_target[i][action_ind])
+        self.model.fit(current_states, current_Qs_main, batch_size=self.batch_size,epochs=1, verbose=0)
 
 
     def init_model(self, state_shape, action_shape):
@@ -174,14 +216,14 @@ class Agent():
         The index of the highest action (0.7) is action #1.
         """
         learning_rate = 0.01
-        init = tf.keras.initializers.HeUniform()
+        init = tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.05, seed=RANDOM_SEED)
         model = keras.Sequential()
         model.add(keras.Input(shape=state_shape))
         model.add(keras.layers.Dense(8, input_dim=state_shape, activation='relu', kernel_initializer=init))
         #model.add(keras.layers.Dense(24, input_dim=state_shape, activation='relu', kernel_initializer=init))
         #model.add(keras.layers.Dense(12, activation='relu', kernel_initializer=init))
         model.add(keras.layers.Dense(action_shape, activation='linear', kernel_initializer=init))
-        model.compile(loss=tf.keras.losses.Huber(), optimizer=tf.keras.optimizers.Adam(lr=learning_rate), metrics=['accuracy'])
+        model.compile(loss="rms", optimizer=tf.keras.optimizers.Adam(lr=learning_rate), metrics=['accuracy'])
         #model.compile(optimizer=tf.keras.optimizers.Adam(lr=learning_rate))
         return model
 
