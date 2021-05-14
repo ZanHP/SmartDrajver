@@ -8,13 +8,14 @@ from tensorflow import keras
 epsilon = 1 # Epsilon-greedy algorithm in initialized at 1 meaning every step is random at the start
 max_epsilon = 1 # You can't explore more than 100% of the time
 min_epsilon = 0.01 # At a minimum, we'll always explore 1% of the time
-decay = 0.01
+decay = 0.001
 
 class Agent():
     def __init__(self, player_sprite, state_shape, action_shape):
+        self.actions = ["L", "R", "U", ]
         self.player_sprite = player_sprite
-        self.model = self.init_model(state_shape, action_shape)
-        self.target_model = self.init_model(state_shape, action_shape)
+        self.model = self.init_model(state_shape, len(self.actions))
+        self.target_model = self.init_model(state_shape, len(self.actions))
         self.replay_memory = deque(maxlen=50_000)
         self.finished = False
         self.total_training_rewards = 0
@@ -22,7 +23,7 @@ class Agent():
         self.train_iteration = 0
         self.steps_to_update_target_model = 0
         self.epsilon = 1
-        self.actions = ["U", "D", "L", "R"]
+        
         
     def do_training_step(self):
         self.steps_to_update_target_model += 1
@@ -38,7 +39,10 @@ class Agent():
         # 2. Explore using the Epsilon Greedy Exploration Strategy
         if random_number <= self.epsilon:
             # Explore
-            action = np.random.choice(self.actions)
+            if random_number <= ALPHA and self.epsilon > ALPHA/2:
+                action = self.player_sprite.angle_heuristic()
+            else:
+                action = np.random.choice(self.actions)
             #action = "U"
             #print("FASFASF")
             is_prediction = False
@@ -74,6 +78,8 @@ class Agent():
             if steps_to_update_target_model % 4 == 0 or self.finished:
                 #print("jo")
                 self.train_model(replay_memory, self.finished)
+            self.state = new_state
+            self.total_training_rewards += reward
 
         else:
             # player je prišel do konca kroga
@@ -98,17 +104,17 @@ class Agent():
             
         self.model = model
         self.replay_memory = replay_memory
-        self.state = new_state
-        self.total_training_rewards += reward
+        
+        
         self.steps_to_update_target_model = steps_to_update_target_model
         self.target_model = target_model
 
         self.epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay * self.episode)
-        #print("epsilon:", self.epsilon)
+        print("epsilon:", round(self.epsilon,2))
         self.episode += 1 
         
 
-        print("Train iteration: ", self.train_iteration)                    
+        #print("Train iteration: ", self.train_iteration)                    
         self.train_iteration += 1
 
     def get_action_ind(self, action):
@@ -121,7 +127,7 @@ class Agent():
         learning_rate = 0.3 # Learning rate
         discount_factor = 0.9
 
-        MIN_REPLAY_SIZE = 500
+        MIN_REPLAY_SIZE = 100
         if len(replay_memory) < MIN_REPLAY_SIZE:
             return None
 
@@ -133,26 +139,27 @@ class Agent():
         # stanja iz trenutnega batcha
         current_states = np.array([self.encode_state(transition[0], 2) for transition in mini_batch])
 
-        # napovedi za stanja i-te iteracije
+        # napovedi Q za stanja i-te iteracije (z dodatnim modelom)
         current_qs_list = self.model.predict(current_states)
         
         # stanja 1 korak naprej
         new_current_states = np.array([self.encode_state(transition[3], 2) for transition in mini_batch])
 
-        # napovedi za stanja (i+1)-te iteracije
+        # napovedi Q za stanja (i+1)-te iteracije (s target modelom)
         future_qs_list = self.target_model.predict(new_current_states)
 
         X = []
         Y = []
         for index, (state, action, reward, new_state, done) in enumerate(mini_batch):
+            # max_future_q predstavlja target
             if not done:
-                max_future_q = reward + discount_factor * np.max(future_qs_list[index])
+                max_future_q = reward + discount_factor * np.amax(future_qs_list[index])
             else:
                 max_future_q = reward
 
             current_qs = current_qs_list[index]
-            ind = self.get_action_ind(action)
-            current_qs[ind] = (1 - learning_rate) * current_qs[ind] + learning_rate * max_future_q
+            action_ind = self.get_action_ind(action)
+            current_qs[action_ind] = (1 - learning_rate) * current_qs[action_ind] + learning_rate * max_future_q
 
             X.append(self.encode_state(state, 2))
             Y.append(current_qs)
@@ -166,22 +173,24 @@ class Agent():
         The highest value 0.7 is the Q-Value.
         The index of the highest action (0.7) is action #1.
         """
-        learning_rate = 0.001
+        learning_rate = 0.01
         init = tf.keras.initializers.HeUniform()
         model = keras.Sequential()
         model.add(keras.Input(shape=state_shape))
-        model.add(keras.layers.Dense(64, input_dim=state_shape, activation='relu', kernel_initializer=init))
-        model.add(keras.layers.Dense(42, activation='relu', kernel_initializer=init))
+        model.add(keras.layers.Dense(8, input_dim=state_shape, activation='relu', kernel_initializer=init))
+        #model.add(keras.layers.Dense(24, input_dim=state_shape, activation='relu', kernel_initializer=init))
+        #model.add(keras.layers.Dense(12, activation='relu', kernel_initializer=init))
         model.add(keras.layers.Dense(action_shape, activation='linear', kernel_initializer=init))
         model.compile(loss=tf.keras.losses.Huber(), optimizer=tf.keras.optimizers.Adam(lr=learning_rate), metrics=['accuracy'])
+        #model.compile(optimizer=tf.keras.optimizers.Adam(lr=learning_rate))
         return model
 
 
     # 300, 400
     def get_reward(self, state):
         distance, angle = state
-        reward_distance = np.exp(-(distance - TOL_CHECKPOINT))
-        reward_angle = np.exp(-10*(1 - (180 - abs(angle))/180))
+        reward_distance = np.exp(-(distance - TOL_CHECKPOINT)/100)
+        reward_angle = np.exp(-5*(1 - (180 - abs(angle))/180))
         reward = reward_distance + reward_angle
         #print("angle, reward_angle:", round(angle,2),",", round(reward_angle,2))
         print("state:", list(map(lambda x : round(x,2), state)))

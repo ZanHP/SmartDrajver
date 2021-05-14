@@ -131,10 +131,10 @@ class Player(arcade.Sprite):
         #print('angle:',self.angle)
 
     def get_current_state(self):
-        print("angle_of_checkpoint:",self.angle_of_checkpoint())
-        print("self.angle:", self.angle)
+        #print("angle_of_checkpoint:",self.angle_of_checkpoint())
+        #print("self.angle:", self.angle)
         angle_dif_to_next_checkpoint = (self.angle_of_checkpoint() - self.angle + 180) % 360 - 180
-        print("angle_dif_to_next_checkpoint:", angle_dif_to_next_checkpoint)
+        #print("angle_dif_to_next_checkpoint:", angle_dif_to_next_checkpoint)
         return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint
     
     def distance_to_nn_checkpoint(self):
@@ -223,21 +223,18 @@ class Player(arcade.Sprite):
                 if np.random.random() > ALPHA_BRAKE:
                     self.on_release_key_up()
                     self.on_press_key_down()
-            '''
-                # če ne dela naključne poteze, upošteva hevristiko
-                angle_dif = (self.angle_of_checkpoint(plus_one=1) - self.angle) % 360
-                #print(angle_dif)
-                if abs(angle_dif) > ANGLE_SPEED:
-                    if angle_dif < 180:
-                        self.on_press_key_left()
-                    else:
-                        self.on_press_key_right()
-                else:
-                    self.on_release_key_left()
-                    self.on_release_key_right()
-            '''
             
         return self.update()
+
+    def angle_heuristic(self):
+        # če ne dela naključne poteze, upošteva hevristiko
+        angle_dif = (self.angle_of_checkpoint() - self.angle) % 360
+        #print(angle_dif)
+        if abs(angle_dif) > ANGLE_SPEED:
+            if angle_dif < 180:
+                return "L"
+            elif angle_dif > 180:
+                return "R"
 
     def get_action(self):
         up_down = ""
