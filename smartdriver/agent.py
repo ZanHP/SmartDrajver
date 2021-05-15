@@ -12,7 +12,8 @@ min_epsilon = 0.01 # At a minimum, we'll always explore 1% of the time
 
 class Agent():
     def __init__(self, player_sprite, state_shape, action_shape):
-        self.actions = np.array(["L", "R", "U", "D"])
+        self.actions = np.array(["L", "R", ""])#, "U", "D"])
+        self.actions_count = np.array([0,0,0,0])
         self.player_sprite = player_sprite
         self.state_shape = state_shape
 
@@ -32,7 +33,7 @@ class Agent():
         self.decay = 0.0004
 
         self.learning_rate = 0.3 # Learning rate
-        self.discount_factor = 0.98
+        self.discount_factor = 0.9
 
         
         self.batch_size = 64
@@ -53,15 +54,19 @@ class Agent():
 
         ####
         if self.train_iteration % 100 == 0:
-            test_states = [[100,130], [100,90], [500,90], [200,45], [100,-130], [100,-90], [500,-90], [200,-45]]
+            
+            test_states = [[50,45], [50,20], [100,130], [100,90], [100,45], [500,90], [200,45], [100,-130], [50,45], [50,20], [100,-90], [100,45], [500,-90], [200,-45]]
             test_predict = np.array([self.model.predict(np.array((state,))).flatten() for state in test_states])
             test_actions = np.array([self.actions[np.argmax(predicted)] for predicted in test_predict])
             #test_predict = self.model.predict(test_states)
             print("\nTEST")
-            print(self.player_sprite.get_current_state())
+            print(np.round(self.player_sprite.get_current_state(),decimals=2))
+            print(round(self.get_reward(self.player_sprite.get_current_state(),0),2))
             #print(np.round(test_predict,decimals=5))
             print(test_predict)
             print(test_actions)
+            print()
+            print(self.actions_count)
             print()
         ####
 
@@ -88,7 +93,9 @@ class Agent():
             action = self.actions[np.argmax(predicted)]
             #print("predicted:", list(map(lambda x : round(x,2), predicted)))
             #print("action:", action)
-            
+
+        self.actions_count[self.get_action_ind(action)] += 1
+        
         # glede na izbrano potezo se premaknemo
         is_not_finished = self.player_sprite.next_move_and_update(action)
         self.finished = not is_not_finished
@@ -136,6 +143,7 @@ class Agent():
             
         if len(self.replay_memory) > self.max_replay_size:
             self.replay_memory = random.sample(self.replay_memory, self.min_replay_size)        
+        
         
         self.epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-self.decay * self.episode)
         if self.train_iteration % 50 == 0:
@@ -243,7 +251,7 @@ class Agent():
         The highest value 0.7 is the Q-Value.
         The index of the highest action (0.7) is action #1.
         """
-        learning_rate = 0.01
+        learning_rate = 0.001
         init = tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.01, seed=RANDOM_SEED)
         inputs = keras.layers.Input(shape=self.state_shape)
 
@@ -279,10 +287,11 @@ class Agent():
     def get_reward(self, state, checkpoint_dif):
         distance, angle = state
         reward_distance = np.exp(-(distance - TOL_CHECKPOINT)/100)
-        reward_angle = np.exp(-5*(1 - (180 - abs(angle))/180))
+        reward_angle = 10*np.exp(-5*(1 - (180 - abs(angle))/180))
         reward_angle_x_distance = 2*((reward_distance + reward_angle)/2)**4
-        reward_checkpoint = 500*checkpoint_dif
+        reward_checkpoint = TOL_CHECKPOINT*checkpoint_dif
         reward = reward_distance + reward_angle + reward_angle_x_distance + reward_checkpoint
+        #reward = reward_distance + (180 - abs(angle))/180
         #reward = 1
         #print("angle, reward_angle:", round(angle,2),",", round(reward_angle,2))
         #print("state:", list(map(lambda x : round(x,2), state)), ", ch_dif:",checkpoint_dif, end=", ")

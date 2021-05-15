@@ -215,7 +215,7 @@ class Player(arcade.Sprite):
         else:
             if action:
                 self.do_action(action)
-            
+            '''
             elif d > 2*TOL_CHECKPOINT:
                     self.on_release_key_down()
                     self.on_press_key_up()
@@ -223,6 +223,7 @@ class Player(arcade.Sprite):
                 if np.random.random() > ALPHA_BRAKE:
                     self.on_release_key_up()
                     self.on_press_key_down()
+            '''
             
         return self.update()
 
@@ -252,19 +253,25 @@ class Player(arcade.Sprite):
         return left_right
 
     def do_action(self, action):
+        self.on_press_key_up()
         if action == "R":
             self.on_press_key_right()
         elif action == "L":
             self.on_press_key_left()
+            
+        '''
         elif action == "D":
+            self.on_release_key_up()
             self.on_press_key_down()
         elif action == "U":
+            self.on_release_key_down()
             self.on_press_key_up()
         else:
-            self.on_release_key_down()
+            #self.on_release_key_down()
             self.on_release_key_left()
             self.on_release_key_right()
-            self.on_release_key_up()
+            #self.on_release_key_up()
+        '''
 
     def on_press_key_up(self):
         self.accelerating = True
