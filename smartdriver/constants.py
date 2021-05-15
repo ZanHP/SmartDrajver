@@ -26,7 +26,7 @@ COLOR_WHITE = (255,255,255)
 
 sh = SCREEN_HEIGHT
 sw = SCREEN_WIDTH
-TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.3], [0.3, 0.3],[0.1,0.1]]))
+TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.3], [0.3, 0.3], [0.3, 0.5], [0.6, 0.3], [0.1,0.1]]))
 #TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.5, 0.5],[0.1,0.1]]))
 TRACK2 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.3, 0.9], [0.4,0.3], [0.9,0.5],[0.1,0.1]]))
 
