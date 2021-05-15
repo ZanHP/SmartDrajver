@@ -15,21 +15,24 @@ class Agent():
         self.actions = ["L", "R", "U", "D"]
         self.player_sprite = player_sprite
         self.state_shape = state_shape
+
         self.model = self.init_model(self.state_shape, len(self.actions))
         self.target_model = self.init_model(state_shape, len(self.actions))
-        self.min_replay_size = 200
-        self.max_replay_size = 3*self.min_replay_size
+        self.update_target_model()
+
+        self.min_replay_size = 1500
+        self.max_replay_size = 4*self.min_replay_size
         self.replay_memory = deque(maxlen=self.max_replay_size)
         self.finished = False
         self.total_training_rewards = 0
         self.episode = 1
-        self.train_iteration = 0
+        self.train_iteration = 1
         self.steps_to_update_target_model = 0
         self.epsilon = 1
         self.decay = 0.0004
 
         self.learning_rate = 0.3 # Learning rate
-        self.discount_factor = 0.9
+        self.discount_factor = 0.98
 
         
         self.batch_size = 128
@@ -40,12 +43,23 @@ class Agent():
     def do_training_step(self):
         self.steps_to_update_target_model += 1
 
-        model = self.model
-        replay_memory = self.replay_memory
+        #model = self.model
+        #replay_memory = self.replay_memory
         state = self.player_sprite.get_current_state()
-        total_training_rewards = self.total_training_rewards
-        steps_to_update_target_model = self.steps_to_update_target_model
-        target_model = self.target_model
+        checkpoint = self.player_sprite.next_checkpoint
+        #total_training_rewards = self.total_training_rewards
+        #steps_to_update_target_model = self.steps_to_update_target_model
+        #target_model = self.target_model
+
+        ####
+        if self.train_iteration % 100 == 0:
+            test_states = [[100,90], [100,-90],[200,90], [200,-90]]
+            test_predict = np.array([self.model.predict(np.array((state,))) for state in test_states])
+            #test_predict = self.model.predict(test_states)
+            print("\nTEST")
+            print(test_predict)
+            print()
+        ####
 
         random_number = np.random.random()
         # 2. Explore using the Epsilon Greedy Exploration Strategy
@@ -64,7 +78,7 @@ class Agent():
             is_prediction = True
 
             encoded_reshaped = np.array((self.player_sprite.get_current_state(),))
-            predicted = model.predict(encoded_reshaped).flatten()
+            predicted = self.model.predict(encoded_reshaped).flatten()
 
             # odločimo se, kaj bo naslednja poteza
             action = self.actions[np.argmax(predicted)]
@@ -78,16 +92,17 @@ class Agent():
         # za novo stanje izračunamo nagrado
         if not self.finished:
             new_state = self.player_sprite.get_current_state()
-            reward = self.get_reward(new_state)
+            new_checkpoint = self.player_sprite.next_checkpoint
+            reward = self.get_reward(new_state, new_checkpoint-checkpoint)
 
             #print(f"state: {state} action: {action} reward: {reward}, new_state: {new_state} is_prediction {is_prediction}")
             #print(f"action: {action}, reward: {round(reward,4)}, is_prediction: {is_prediction}")
 
             # v spomin dodamo (stanje, premik, nagrada, novo_stanje, končal)
-            replay_memory.append([state, action, reward, new_state, self.finished])
+            self.replay_memory.append([state, action, reward, new_state, self.finished])
 
             # 3. Update the Main Network using the Bellman Equation
-            if steps_to_update_target_model % 4 == 0 or self.finished:
+            if self.steps_to_update_target_model % 4 == 0 or self.finished:
                 #print("jo")
                 self.train_main_model()#replay_memory, self.finished)
             self.state = new_state
@@ -95,11 +110,10 @@ class Agent():
 
         else:
             # player je prišel do konca kroga
-            print('Total training rewards: {} after n steps = {}.'.format(total_training_rewards, self.episode))
+            print('Total training rewards: {} after n steps = {}.'.format(self.total_training_rewards, self.episode))
 
-            if steps_to_update_target_model >= 100:
-                print('Copying main network weights to the target network weights')
-                target_model.set_weights(model.get_weights())
+            if self.steps_to_update_target_model >= 100:
+                self.update_target_model()
                 steps_to_update_target_model = 0
 
             # naredimo reset 
@@ -114,23 +128,20 @@ class Agent():
             self.player_sprite.change_angle = 0
 
             
-        self.model = model
-        if len(replay_memory) > self.max_replay_size:
-            self.replay_memory = random.sample(replay_memory, self.min_replay_size)
-        else:
-            self.replay_memory = replay_memory
+        if len(self.replay_memory) > self.max_replay_size:
+            self.replay_memory = random.sample(self.replay_memory, self.min_replay_size)        
         
-        
-        self.steps_to_update_target_model = steps_to_update_target_model
-        self.target_model = target_model
-
         self.epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-self.decay * self.episode)
-        print("epsilon:", round(self.epsilon,2))
+        #print("epsilon:", round(self.epsilon,2))
         self.episode += 1 
         
 
         #print("Train iteration: ", self.train_iteration)                    
         self.train_iteration += 1
+    
+    def update_target_model(self):
+        print('Copying main network weights to the target network weights')
+        self.target_model.set_weights(self.model.get_weights())
 
     def get_action_ind(self, action):
         return np.where(self.actions == action)
@@ -237,13 +248,15 @@ class Agent():
 
 
     # 300, 400
-    def get_reward(self, state):
+    def get_reward(self, state, checkpoint_dif):
         distance, angle = state
         reward_distance = np.exp(-(distance - TOL_CHECKPOINT)/100)
         reward_angle = np.exp(-5*(1 - (180 - abs(angle))/180))
-        reward = reward_distance + reward_angle
+        reward_angle_x_distance = 2*((reward_distance + reward_angle)/2)**4
+        reward_checkpoint = 50*checkpoint_dif
+        reward = reward_distance + reward_angle + reward_angle_x_distance + reward_checkpoint
         #print("angle, reward_angle:", round(angle,2),",", round(reward_angle,2))
-        print("state:", list(map(lambda x : round(x,2), state)))
-        print("stRew:", list(map(lambda x : round(x,2), [reward_distance, reward_angle])))
+        #print("state:", list(map(lambda x : round(x,2), state)), ", ch_dif:",checkpoint_dif, end=", ")
+        #print("stRew:", list(map(lambda x : round(x,2), [reward_distance, reward_angle, reward_angle_x_distance, reward_checkpoint])))
         #print("reward:",round(reward,4))
         return reward
