@@ -242,7 +242,7 @@ class Agent():
                 #print("action[i]",action[i])
                 #print("a:",i, action[i], action_ind, self.get_action_ind(action[i]))
                 current_Qs_main[i][self.get_action_ind(action[i])] = reward[i] + self.discount_factor * (next_Qs_target[i][action_ind])
-        self.model.fit(current_states, current_Qs_main, batch_size=self.batch_size, epochs=1, verbose=0)
+        self.model.fit(current_states, current_Qs_main, batch_size=self.batch_size, epochs=10, verbose=0)
 
 
     def init_model(self, state_shape, action_shape):
@@ -297,4 +297,4 @@ class Agent():
         #print("state:", list(map(lambda x : round(x,2), state)), ", ch_dif:",checkpoint_dif, end=", ")
         #print("stRew:", list(map(lambda x : round(x,2), [reward_distance, reward_angle, reward_angle_x_distance, reward_checkpoint])))
         #print("reward:",round(reward,4))
-        return reward
+        return reward_angle
