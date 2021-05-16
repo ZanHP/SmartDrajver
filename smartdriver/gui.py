@@ -8,7 +8,7 @@ from smartdriver.player import Player
 from smartdriver.track import Track
 from smartdriver.agent import Agent
 
-state_shape = 2
+state_shape = 5
 action_shape = 3
 train_episodes = 300
 test_episodes = 100
