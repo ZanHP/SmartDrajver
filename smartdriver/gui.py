@@ -1,6 +1,7 @@
 import os
 import arcade
 import numpy as np
+import pickle
 
 from smartdriver.constants import *
 from smartdriver.player import Player
@@ -18,7 +19,7 @@ class MyGame(arcade.Window):
     Main application class.
     """
 
-    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=False, show=True, verbose=False, train=False):
+    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=True, show=True, verbose=False, train=False):
 
         self.show = show
         self.num_steps_made = 0
@@ -60,10 +61,17 @@ class MyGame(arcade.Window):
         # Set up the player
         player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, best_run=len(self.best_actions) if self.best_actions else np.Inf, verbose=self.verbose)
 
-        if self.train:
+        if self.smart:
+            #weights = None
+            try:
+                weights_file = open('weights.pkl','rb')
+                weights = pickle.load(weights_file)
+            except:
+                weights = None
             # naredimo agenta, ki drži playerja, model in target_model
-            self.agent = Agent(player_sprite, (state_shape,), action_shape)
+            self.agent = Agent(player_sprite, (state_shape,), weights)
             self.train_iteration = 0
+
 
     def on_draw(self):
         arcade.start_render()
@@ -88,6 +96,8 @@ class MyGame(arcade.Window):
             if self.agent.player_sprite.smart:
                 if self.train:
                     self.agent.do_training_step()
+                else:
+                    self.agent.do_predicted_move()
             else:
                 if not self.agent.player_sprite.update():
                     self.pause = True
@@ -97,6 +107,11 @@ class MyGame(arcade.Window):
         """Called whenever a key is pressed. """
         if key == arcade.key.ESCAPE:
             self.pause = False if self.pause else True
+
+        if key == arcade.key.W:
+            weights = self.agent.target_model.get_weights()
+            filehandler = open('weights.pkl', 'wb') 
+            pickle.dump(weights, filehandler)
 
         if key == arcade.key.R:
             self.setup()

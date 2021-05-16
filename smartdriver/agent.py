@@ -11,18 +11,21 @@ min_epsilon = 0.01 # At a minimum, we'll always explore 1% of the time
 
 
 class Agent():
-    def __init__(self, player_sprite, state_shape, action_shape):
+    def __init__(self, player_sprite, state_shape, weights=None):
         self.actions = np.array(["L", "R", ""])#, "U", "D"])
         self.actions_count = np.array([0,0,0,0])
         self.player_sprite = player_sprite
         self.state_shape = state_shape
 
         self.model = self.init_model(self.state_shape, len(self.actions))
+        
         self.target_model = self.init_model(state_shape, len(self.actions))
+        if weights:
+            self.model.set_weights(weights)
         self.update_target_model()
 
         self.min_replay_size = 1000
-        self.max_replay_size = 4*self.min_replay_size
+        self.max_replay_size = 10*self.min_replay_size
         self.replay_memory = deque(maxlen=self.max_replay_size)
         self.finished = False
         self.total_training_rewards = 0
@@ -35,12 +38,31 @@ class Agent():
         self.learning_rate = 0.3 # Learning rate
         self.discount_factor = 0.9
 
-        
-        self.batch_size = 64
+        self.batch_size = 256
 
+        self.test()
 
-        
-        
+    def test(self):
+        test_states = [[50,45], [50,20], [100,130], [100,90], [100,45], [500,90], [200,45], [100,-130], [50,-45], [50,-20], [100,-90], [100,-45], [500,-90], [200,-45]]
+        test_predict = np.array([self.model.predict(np.array((state,))).flatten() for state in test_states])
+        test_actions = np.array([self.actions[np.argmax(predicted)] for predicted in test_predict])
+        #test_predict = self.model.predict(test_states)
+        print("\nTEST")
+        print(np.round(self.player_sprite.get_current_state(),decimals=2))
+        print(round(self.get_reward(self.player_sprite.get_current_state(),0),2))
+        #print(np.round(test_predict,decimals=5))
+        print(test_predict)
+        print(test_actions)
+        print()
+        print(self.actions_count)
+        print()
+
+    def do_predicted_move(self):
+        encoded_reshaped = np.array((self.player_sprite.get_current_state(),))
+        predicted = self.target_model.predict(encoded_reshaped).flatten()
+        action = self.actions[np.argmax(predicted)]
+        self.player_sprite.next_move_and_update(action)
+
     def do_training_step(self):
         self.steps_to_update_target_model += 1
 
@@ -54,20 +76,7 @@ class Agent():
 
         ####
         if self.train_iteration % 100 == 0:
-            
-            test_states = [[50,45], [50,20], [100,130], [100,90], [100,45], [500,90], [200,45], [100,-130], [50,45], [50,20], [100,-90], [100,45], [500,-90], [200,-45]]
-            test_predict = np.array([self.model.predict(np.array((state,))).flatten() for state in test_states])
-            test_actions = np.array([self.actions[np.argmax(predicted)] for predicted in test_predict])
-            #test_predict = self.model.predict(test_states)
-            print("\nTEST")
-            print(np.round(self.player_sprite.get_current_state(),decimals=2))
-            print(round(self.get_reward(self.player_sprite.get_current_state(),0),2))
-            #print(np.round(test_predict,decimals=5))
-            print(test_predict)
-            print(test_actions)
-            print()
-            print(self.actions_count)
-            print()
+            self.test()
         ####
 
         random_number = np.random.random()
@@ -79,13 +88,8 @@ class Agent():
             else:
                 action = np.random.choice(self.actions)
             #action = "U"
-            #print("FASFASF")
-            is_prediction = False
         else:
             # Exploit best known action
-            # model dims are (batch, env.state_space.n)
-            is_prediction = True
-
             encoded_reshaped = np.array((self.player_sprite.get_current_state(),))
             predicted = self.model.predict(encoded_reshaped).flatten()
 
@@ -242,7 +246,7 @@ class Agent():
                 #print("action[i]",action[i])
                 #print("a:",i, action[i], action_ind, self.get_action_ind(action[i]))
                 current_Qs_main[i][self.get_action_ind(action[i])] = reward[i] + self.discount_factor * (next_Qs_target[i][action_ind])
-        self.model.fit(current_states, current_Qs_main, batch_size=self.batch_size, epochs=10, verbose=0)
+        self.model.fit(current_states, current_Qs_main, batch_size=self.batch_size, epochs=30, verbose=0)
 
 
     def init_model(self, state_shape, action_shape):
@@ -262,9 +266,9 @@ class Agent():
 
         #layer4 = keras.layers.Flatten()(layer3)
 
-        layer1 = keras.layers.Dense(12, activation="relu", kernel_initializer=init)(inputs)
-        layer2 = keras.layers.Dense(6, activation="relu", kernel_initializer=init)(layer1)
-        action = keras.layers.Dense(len(self.actions), activation="linear")(layer2)
+        layer1 = keras.layers.Dense(12, activation="sigmoid", kernel_initializer=init)(inputs)
+        layer2 = keras.layers.Dense(6, activation="sigmoid", kernel_initializer=init)(layer1)
+        action = keras.layers.Dense(len(self.actions), activation="softmax")(layer2)
         model = keras.Model(inputs=inputs, outputs=action)
         model.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(lr=learning_rate), metrics=['accuracy'])
         return model
@@ -287,6 +291,7 @@ class Agent():
     def get_reward(self, state, checkpoint_dif):
         distance, angle = state
         reward_distance = np.exp(-(distance - TOL_CHECKPOINT)/100)
+        angle = 0 if abs(angle) < ANGLE_SPEED/2 else angle
         reward_angle = 10*np.exp(-5*(1 - (180 - abs(angle))/180))
         reward_angle_x_distance = 2*((reward_distance + reward_angle)/2)**4
         reward_checkpoint = TOL_CHECKPOINT*checkpoint_dif
