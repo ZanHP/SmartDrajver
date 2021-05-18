@@ -9,6 +9,7 @@ from smartdriver.track import Track
 from smartdriver.agent import Agent
 from smartdriver.geneticagent import GeneticAgent
 import neat
+import pyglet
 state_shape = 5
 action_shape = 3
 train_episodes = 300
@@ -49,8 +50,6 @@ class MyGame(arcade.Window):
         else:
             super().__init__(width//4, height//4, title, update_rate=update_rate)
             arcade.set_background_color(arcade.color.BLACK)
-            
-
     def setup(self):
         """ Set up the game and initialize the variables. """
 
@@ -162,13 +161,12 @@ class MyGame(arcade.Window):
 
 
 
-
 class GeneticGame(arcade.Window):
     """
     Main application class.
     """
 
-    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=True, show=True, verbose=False, train=False, genomes=[], config=[]):
+    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=True, show=True, verbose=False, train=False):
 
         self.show = show
         self.num_steps_made = 0
@@ -184,15 +182,18 @@ class GeneticGame(arcade.Window):
         self.finished = False
 
         self.best_actions = []
-        self.genomes = genomes
 
         # weird set attribute error, this solves it
         self.conf = {}
-        self.conf["conf"] = config
 
         # ce zelis pogledati simulacijo
         #dbfile = open('smartdriver/best.pkl', 'rb')     
-        #self.best_actions, self.state_actions_dict = pickle.load(dbfile)        
+        #self.best_actions, self.state_actions_dict = pickle.load(dbfile)      
+        
+
+        
+
+        
 
         if self.show:
             super().__init__(width, height, title, update_rate=update_rate)
@@ -203,13 +204,13 @@ class GeneticGame(arcade.Window):
             super().__init__(width//4, height//4, title, update_rate=update_rate)
             arcade.set_background_color(arcade.color.BLACK)
             
-
+    
     def setup(self):
         """ Set up the game and initialize the variables. """
 
         self.player_list = arcade.SpriteList()
 
-        self.num_players = len(self.genomes)
+        self.num_players = 2
         self.track = Track(TRACK1)
 
         for _ in range(self.num_players):
@@ -217,23 +218,25 @@ class GeneticGame(arcade.Window):
             # Set up the player
 
 
-            player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart, best_run=len(self.best_actions) if self.best_actions else np.Inf)
+            player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart)
             self.player_list.append(player_sprite)
 
             weights = None
             # naredimo agenta, ki drži playerja, model in target_model
         
-        self.agent = GeneticAgent(self.player_list, (state_shape,), weights, genomes=self.genomes, config=self.conf["conf"])
+        self.agent = GeneticAgent( (state_shape,), weights, self.track, self.smart)
 
         self.train_iteration = 0
-
 
     def on_draw(self):
         arcade.start_render()
 
         if self.show:
-            arcade.draw_text("time: {}".format(self.num_steps_made), SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
+            arcade.draw_text("time: {} \n generation: {}".format(self.agent.time_step, self.agent.gen), SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
+
             #self.sprite.draw()
+            #arcade.draw_text("time:", SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
+
             self.track.draw_track()
             self.agent.draw()
             arcade.draw_text("S:   toggle smart\nEsc: pause", SCREEN_WIDTH-200, 20, TRACK_COLOR_PASSED, font_size=14)
@@ -245,18 +248,16 @@ class GeneticGame(arcade.Window):
             arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
 
     def on_update(self, delta_time=UPDATE_RATE):
+
         """ Movement and game logic """
         if not self.pause:
             self.num_steps_made += 1
             finished = self.agent.do_training_step()
 
             if finished:
-                self.pause = True
-                self.finished = True
-
-                self.flip()
-                self.clear()
-                self.close()
+                pass
+                #self.pause = True
+                #self.finished = True
             
     def on_key_press(self, key, modifiers):
         """Called whenever a key is pressed. """
@@ -290,8 +291,8 @@ class GeneticGame(arcade.Window):
 
     def on_key_release(self, key, modifiers):
         """Called when the user releases a key. """
-        if not self.agent.player_sprite.smart:
-            pass
+            #if not self.agent.player_sprite.smart:
+        pass
             # if key == arcade.key.UP:
             #     self.player_sprite.on_release_key_up()
             # if key == arcade.key.DOWN:
