@@ -39,6 +39,8 @@ class Player(arcade.Sprite):
 
         self.best_run = best_run
 
+        self.finished = False
+
         self.accelerating = False
         self.braking = False
 
