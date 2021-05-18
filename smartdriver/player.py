@@ -138,8 +138,9 @@ class Player(arcade.Sprite):
         angle_dif_to_next_checkpoint = (self.angle_of_checkpoint() - self.angle + 180) % 360 - 180
         angle_dif_to_nn_checkpoint = (self.angle_of_checkpoint(plus_one=1) - self.angle + 180) % 360 - 180
         #print("angle_dif_to_next_checkpoint:", angle_dif_to_next_checkpoint)
-        return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint, self.distance_to_next_checkpoint(plus_one=1), angle_dif_to_nn_checkpoint, self.speed
-    
+        #return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint, self.distance_to_next_checkpoint(plus_one=1), angle_dif_to_nn_checkpoint, self.speed
+        return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint
+
     def distance_to_nn_checkpoint(self):
         x, y = self.center_x, self.center_y
         if self.next_checkpoint + 1 < len(self.track.checkpoints):
@@ -148,6 +149,19 @@ class Player(arcade.Sprite):
             return res
         else:
             return MAX_DISTANCE
+
+    
+    def distance_to_finish(self):
+        to_finish = self.distance_to_next_checkpoint()
+
+        for i, checkpoint in enumerate(self.track.checkpoints[self.next_checkpoint:-1]):
+            c1 = self.track.checkpoints[i]
+            c2 = self.track.checkpoints[i+1]
+
+            res = ((c1[0]-c2[0])**2 + (c1[1]-c2[1])**2)**0.5
+
+            to_finish += res
+        return to_finish
 
 
     def distance_to_next_checkpoint(self, plus_one=0):

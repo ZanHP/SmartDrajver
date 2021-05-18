@@ -72,7 +72,6 @@ class MyGame(arcade.Window):
             self.agent = Agent(player_sprite, (state_shape,), weights)
             self.train_iteration = 0
 
-
     def on_draw(self):
         arcade.start_render()
 
@@ -91,6 +90,7 @@ class MyGame(arcade.Window):
 
     def on_update(self, delta_time=UPDATE_RATE):
         """ Movement and game logic """
+        self.set_update_rate(UPDATE_RATE)
         if not self.pause:
             self.num_steps_made += 1
             if self.agent.player_sprite.smart:
@@ -212,19 +212,8 @@ class GeneticGame(arcade.Window):
 
         self.num_players = 2
         self.track = Track(TRACK1)
-
-        for _ in range(self.num_players):
-            # Set up the track
-            # Set up the player
-
-
-            player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart)
-            self.player_list.append(player_sprite)
-
-            weights = None
-            # naredimo agenta, ki drži playerja, model in target_model
-        
-        self.agent = GeneticAgent( (state_shape,), weights, self.track, self.smart)
+                
+        self.agent = GeneticAgent( (state_shape,), TRACK1, self.smart)
 
         self.train_iteration = 0
 
@@ -258,6 +247,7 @@ class GeneticGame(arcade.Window):
                 pass
                 #self.pause = True
                 #self.finished = True
+
             
     def on_key_press(self, key, modifiers):
         """Called whenever a key is pressed. """

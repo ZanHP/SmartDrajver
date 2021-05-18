@@ -1,4 +1,5 @@
 from collections import deque
+from smartdriver.track import Track
 
 from arcade.sprite_list import SpriteList
 from smartdriver.constants import *
@@ -19,7 +20,7 @@ min_epsilon = 0.01 # At a minimum, we'll always explore 1% of the time
 
 
 class GeneticAgent():
-    def __init__(self, state_shape, weights=None, track=None, smart=None):
+    def __init__(self, state_shape, TRACK=None, smart=None):
         #self.actions = np.array(["L", "R", ""])#, "U", "D"])
         self.actions = np.array(["L","", "R"])#, "U", "D"])
         self.state_shape = state_shape
@@ -27,10 +28,10 @@ class GeneticAgent():
         self.finished = False
         self.total_training_rewards = 0
 
-        self.track = track
+        self.TRACK = TRACK
         self.smart = smart
 
-        self.max_time_steps = 60 * 30
+        self.max_time_steps = 60 * 15
 
         self.gen = 1
         self.max_gen = 100
@@ -48,7 +49,7 @@ class GeneticAgent():
         p.add_reporter(stats)
 
         p.start_generation(self.max_gen)
-        genomes, config = p.get_genome_and_config()
+        genomes, config = p.get_genomes_and_config()
 
         self.p = p
 
@@ -61,14 +62,25 @@ class GeneticAgent():
        
         #self.update_target_model()
 
+    def max_fitness_score(self):
+        genomes, _ = self.p.get_genomes_and_config()
+
+        # this could be better sigh
+        max_val = -9999999
+        for _,g in genomes:
+            if g.fitness > max_val:
+                max_val = g.fitness
+
+        return max_val
 
     def create_players(self, number):
         self.player_sprites = SpriteList()
         for _ in range(number):
-            player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, self.track.checkpoints[0], self.track, self.smart)
+
+            track = Track(self.TRACK)
+            player_sprite = Player(":resources:images/space_shooter/playerShip1_orange.png", SPRITE_SCALING, track.checkpoints[0], track, self.smart)
             self.player_sprites.append(player_sprite)
 
-        
     
     def create_nets(self, genomes, config):
         self.create_players(len(genomes))
@@ -116,18 +128,19 @@ class GeneticAgent():
             self.time_step = 1
 
             # player je prišel do konca kroga
-
+            print("hej evaluate")
             self.do_summary_fitness_scores()
+            print(self.max_fitness_score())
 
             self.p.evaluate()
-
             self.p.start_generation(self.max_gen)
-            genome, config = self.p.get_genome_and_config()
-            self.create_nets(genome, config)
+            genomes, config = self.p.get_genomes_and_config()
 
+            
+            self.create_nets(genomes, config)
             print(len(self.player_sprites), len(self.player_neat))
-
             return True
+            
 
         for player_sprite in self.player_sprites:
             
@@ -135,9 +148,12 @@ class GeneticAgent():
                 continue
                 
             state = player_sprite.get_current_state()
+            
+            normalize_state = np.array(state) / 180
+
             net = self.get_model(player_sprite)
 
-            predicted = net.activate((state))
+            predicted = net.activate((normalize_state))
             action = self.actions[np.argmax(predicted)]
             #print(action)
             #encoded_reshaped = np.array((player_sprite.get_current_state(),))
@@ -171,8 +187,8 @@ class GeneticAgent():
 
     def get_fitness_score(self, player_sprite):
         if player_sprite.finished:
-            return - player_sprite.finish_time
+            return (- player_sprite.finish_time) + 3000
         else:
-            return - (self.max_time_steps +  player_sprite.distance_to_nn_checkpoint())
+            return (- (self.max_time_steps +  player_sprite.distance_to_finish())) + 3000
 
 
