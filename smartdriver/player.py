@@ -37,7 +37,7 @@ class Player(arcade.Sprite):
         self.remember_random = 0
         self.remember_random_action = ""
 
-        self.best_run = best_run
+        self.wrong_way = False
 
         self.accelerating = False
         self.braking = False
@@ -55,6 +55,13 @@ class Player(arcade.Sprite):
 
     def print_self(self):          
         print('x: {}, y: {}, v: {}, a: {}, sa: {}'.format(*list(map(lambda x : round(x,2),[self.center_x, self.center_y, self.speed, self.angle, self.speed_angle]))))
+
+    def too_far_from_track(self):
+        d = self.track.distance_to_track([self.center_x, self.center_y], self.next_checkpoint-1)
+        if d > TOL_DISTANCE_TO_TRACK:
+            self.wrong_way = True
+        else:
+            self.wrong_way = False
 
     def update(self):
         # Naredi en časovni korak. Vrne True, če nismo na koncu proge, False, če smo in None, če je bilo narejenih že preveč korakov.
@@ -130,13 +137,19 @@ class Player(arcade.Sprite):
         #print(self.angle_of_checkpoint())
         #print('angle:',self.angle)
 
+    def round_state(self, state):
+        rounding_factor = 2
+        return np.array([np.round(x / rounding_factor) for x in state]) * rounding_factor
+
     def get_current_state(self):
+        
         #print("angle_of_checkpoint:",self.angle_of_checkpoint())
         #print("self.angle:", self.angle)
+        distance = self.distance_to_next_checkpoint()
         angle_dif_to_next_checkpoint = (self.angle_of_checkpoint() - self.angle + 180) % 360 - 180
         angle_dif_to_nn_checkpoint = (self.angle_of_checkpoint(plus_one=1) - self.angle + 180) % 360 - 180
         #print("angle_dif_to_next_checkpoint:", angle_dif_to_next_checkpoint)
-        return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint, self.distance_to_next_checkpoint(plus_one=1), angle_dif_to_nn_checkpoint, self.speed
+        return self.round_state([distance, angle_dif_to_next_checkpoint]) #, self.distance_to_next_checkpoint(plus_one=1), angle_dif_to_nn_checkpoint, self.speed
     
     def distance_to_nn_checkpoint(self):
         x, y = self.center_x, self.center_y
@@ -145,7 +158,7 @@ class Player(arcade.Sprite):
             res = ((x-nc[0])**2 + (y-nc[1])**2)**0.5
             return res
         else:
-            return MAX_DISTANCE
+            return 0
 
 
     def distance_to_next_checkpoint(self, plus_one=0):
@@ -155,7 +168,7 @@ class Player(arcade.Sprite):
             res = ((x-nc[0])**2 + (y-nc[1])**2)**0.5
             return res
         else:
-            return MAX_DISTANCE
+            return 0
 
     def checkpoint_reached(self):
         # True, če še nismo na koncu, False, če smo končali.
@@ -176,7 +189,7 @@ class Player(arcade.Sprite):
             else:
                 return temp_angle
         else:
-            return 180
+            return 0
         
 
     def next_move_and_update(self, action=None, rand=False):
@@ -241,8 +254,15 @@ class Player(arcade.Sprite):
 
     def angle_heuristic(self):
         # če ne dela naključne poteze, upošteva hevristiko
+        
         angle_dif = self.get_angle_dif()
         action = None
+        if ANGLE_SPEED/2 < angle_dif < 180:
+            action = "L"
+        elif 360 - ANGLE_SPEED/2 > angle_dif > 180:
+            action = "R"
+        #print(round(angle_dif,1), action)
+        '''
         if ANGLE_SPEED < angle_dif < 180:
             action = "L"
         elif ANGLE_SPEED/4 < angle_dif < ANGLE_SPEED:
@@ -252,6 +272,7 @@ class Player(arcade.Sprite):
         elif 360 - ANGLE_SPEED < angle_dif < 360 - ANGLE_SPEED/4:
             action = "Rl"
         #print(round(angle_dif,1), action)
+        '''
         return action
 
     def get_action(self):

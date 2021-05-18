@@ -17,6 +17,7 @@ MAX_SPEED = 3
 TOL = 0.01
 TOL_ANGLE = 0.01
 TOL_CHECKPOINT = 20
+TOL_DISTANCE_TO_TRACK = 100
 
 TRACK_COLOR_PASSED = (0,255,00)
 TRACK_COLOR_CURRENT = (255,0,0)
@@ -26,12 +27,13 @@ COLOR_WHITE = (255,255,255)
 
 sh = SCREEN_HEIGHT
 sw = SCREEN_WIDTH
+#TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.2], [0.1, 0.3], [0.1, 0.4], [0.1, 0.5], [0.1, 0.6], [0.2,0.7], [0.2,0.5], [0.2,0.3], [0.1,0.2]]))
 TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.3], [0.3, 0.3], [0.3, 0.5], [0.6, 0.3], [0.1,0.1]]))
 #TRACK1 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.5, 0.5],[0.1,0.1]]))
 TRACK2 = list(map(lambda x : [sw*x[0], sh*x[1]], [[0.1,0.1], [0.1, 0.5], [0.3, 0.9], [0.4,0.3], [0.9,0.5],[0.1,0.1]]))
 
 
-ALPHA = 0.5
+ALPHA = 0.9
 MAX_DISTANCE = 10*SCREEN_WIDTH
 #ALPHA_BRAKE = 0.8
 #CONSECUTIVE_STEPS = 2

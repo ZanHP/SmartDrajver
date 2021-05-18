@@ -4,41 +4,51 @@ import tensorflow as tf
 import numpy as np
 from tensorflow import keras
 import random
+import matplotlib.pyplot as plt
 
-epsilon = 1 # Epsilon-greedy algorithm in initialized at 1 meaning every step is random at the start
 max_epsilon = 1 # You can't explore more than 100% of the time
 min_epsilon = 0.01 # At a minimum, we'll always explore 1% of the time
 
 
 class Agent():
     def __init__(self, player_sprite, state_shape, weights=None):
-        #self.actions = np.array(["L", "R", ""])#, "U", "D"])
-        self.actions = np.array(["L","Ll", "R","Rl"])#, "U", "D"])
+        self.actions = np.array(["L", "R"])#, ""])#, "U", "D"])
+        #self.actions = np.array(["L","Ll", "R","Rl"])#, "U", "D"])
         self.predicted_actions = np.array([0,0,0,0,0,0])
         self.heuristic_actions = np.array([0,0,0,0,0,0])
         self.random_actions = np.array([0,0,0,0,0,0])
         self.player_sprite = player_sprite
         self.state_shape = state_shape
 
-        self.min_replay_size = 1000
-        self.max_replay_size = 10*self.min_replay_size
+        self.min_replay_size = 400
+        self.max_replay_size = 50*self.min_replay_size
         self.replay_memory = deque(maxlen=self.max_replay_size)
         self.finished = False
         self.total_training_rewards = 0
         
         self.train_iteration = 1
         self.target_update_period = self.min_replay_size // 2
-        self.main_update_period = self.min_replay_size // 10
+        self.main_update_period = self.min_replay_size // 50
 
         self.epsilon = 1
         self.decay = 0.4
         self.episode = 1
 
-        self.learning_rate = 0.08 # Learning rate
-        self.discount_factor = 0.95
+        self.learning_rate = 0.1 # Learning rate
+        self.discount_factor = 0.7
 
-        self.batch_size = self.min_replay_size // 3
 
+        self.max_reward = 0
+        self.max_state = None
+
+        self.batch_size = self.min_replay_size // 10
+
+
+        #lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+                            #initial_learning_rate=1e-2,
+                            #decay_steps=10000,
+                            #decay_rate=0.9)
+        self.optimizer = keras.optimizers.Adam(learning_rate=0.0001)
         self.model = self.init_model()
         self.target_model = self.init_model()
         self.test()
@@ -48,33 +58,71 @@ class Agent():
             self.initial_train()
             self.test()
         self.update_target_model()
+
         
 
     def initial_train(self):
         train_states = []
         Qs = []
-        n = 40
+        n = 200
+        max_r = 2
+        Ds, As = [], []
         for angle in np.linspace(-179,179,n):
             for distance in np.linspace(TOL_CHECKPOINT+1, 500, n):
-                for speed in np.linspace(0,MAX_SPEED,n):
-                    train_states.append(np.array([distance,angle,MAX_DISTANCE, 180,speed]))
-                    if angle < -ANGLE_SPEED:
-                        Qs.append(np.array([0,0,4,0]))
-                    elif angle > ANGLE_SPEED:
-                        Qs.append(np.array([4,0,0,0]))
-                    else:
-                        Qs.append(np.array([0,2,0,2]))
+                state = [distance,angle]
+                Ds.append(distance)
+                As.append(angle)
+                r = self.get_reward(state,0)
+                #if r > max_r:
+                #    max_r = r
+                if len(Qs) % 1000 == 0:
+                    print(state, r)
+
+                train_states.append(np.array(state))
+                if angle < -ANGLE_SPEED/2:
+                    #Qs.append(np.array([0,0,4,0]))
+                    Qs.append(np.array([0,r]))
+                elif angle > ANGLE_SPEED/2:
+                    Qs.append(np.array([r,0]))
+                else:
+                    #Qs.append(np.array([0,2,0,2]))
+                    Qs.append(np.array([r/2,r/2]))
+                '''
+                for angle_n in np.linspace(-179,179,n):
+                    for distance_n in np.linspace(TOL_CHECKPOINT+1, 500, n):                            
+                        for speed in np.linspace(0,MAX_SPEED,n):
+                            for checkpoint_dif in [0,1]:
+                                state = [distance,angle,distance_n,angle_n,speed]
+                                state = state[:2]
+                                r = self.get_reward(state,checkpoint_dif)
+                                if len(Qs) % 1000 == 0:
+                                    print(state, r)
+                                    max_r = r
+
+                                train_states.append(np.array(state))
+                                if angle < -ANGLE_SPEED/2:
+                                    #Qs.append(np.array([0,0,4,0]))
+                                    Qs.append(np.array([0,r]))
+                                elif angle > ANGLE_SPEED/2:
+                                    Qs.append(np.array([r,0]))
+                                else:
+                                    #Qs.append(np.array([0,2,0,2]))
+                                    Qs.append(np.array([r/2,r/2]))
+                '''
         train_states = np.array(train_states)
+        plt.plot(Ds,As,'.')
+        plt.show()
         Qs = np.array(Qs)
         #print(train_states)
         #print(Qs)
-        self.model.fit(train_states, Qs, batch_size=200, epochs=30, verbose=1)
+        self.model.fit(train_states, Qs, epochs=8, verbose=1)
         self.update_target_model()
 
     def test(self):
         test_states = [[50,45], [50,20], [100,130], [100,90], [100,45], [500,90], [200,45], [500,10], [500,2], [100,-130], [50,-45], [50,-20], [100,-90], [100,-45], [500,-90], [200,-45], [500,-10], [500,-2]]
-        test_states = [[x[0],x[1],MAX_DISTANCE, 180, MAX_SPEED] for x in test_states]
-        test_predict = np.array([self.model.predict(np.array((state,))).flatten() for state in test_states])
+        #test_states = [self.player_sprite.round_state(state) for state in test_states]
+        #test_states = [[x[0],x[1],MAX_DISTANCE, 180, MAX_SPEED] for x in test_states]
+        test_predict = np.array([self.model.predict((state,)).flatten() for state in test_states])
         test_predict_target = np.array([self.target_model.predict(np.array((state,))).flatten() for state in test_states])
         test_actions = np.array([self.actions[np.argmax(predicted)] for predicted in test_predict])
         test_actions_target = np.array([self.actions[np.argmax(predicted)] for predicted in test_predict_target])
@@ -124,9 +172,9 @@ class Agent():
         heuristic_choice = False
         predicted_choice = False
         # 2. Explore using the Epsilon Greedy Exploration Strategy
-        if random_number <= self.epsilon:
+        if random_number <= self.epsilon or self.train_iteration < self.min_replay_size:
             # Explore
-            #if random_number <= ALPHA and self.epsilon > ALPHA/2:
+            #if (random_number <= ALPHA and self.epsilon > ALPHA/2):
             #    action = self.player_sprite.angle_heuristic()
             #    heuristic_choice = True if action else False
             #if not heuristic_choice:
@@ -139,11 +187,18 @@ class Agent():
             predicted = self.model.predict(encoded_reshaped).flatten()
 
             # odločimo se, kaj bo naslednja poteza
-            action = self.actions[np.argmax(predicted)]
+            
+            if abs(predicted[0] - predicted[1]) / np.max(predicted) > 0.02:
+                action = self.actions[np.argmax(predicted)]
+                print("predict:", predicted, state, action)
+                predicted_choice = True
+            else:
+                action = np.random.choice(self.actions)
+                random_choice = True
             #print("--:", round(self.player_sprite.get_angle_dif(),1), action)
             #print("predicted:", list(map(lambda x : round(x,2), predicted)))
             #print("action:", action)
-            predicted_choice = True
+            
 
         if predicted_choice:
             self.predicted_actions[self.get_action_ind(action)] += 1
@@ -194,7 +249,7 @@ class Agent():
             self.player_sprite.change_angle = 0
 
         if self.train_iteration % self.target_update_period == 0:
-                self.update_target_model()
+            self.update_target_model()
             
         if len(self.replay_memory) > self.max_replay_size:
             self.replay_memory = random.sample(self.replay_memory, self.min_replay_size)        
@@ -270,18 +325,19 @@ class Agent():
         if len(self.replay_memory) < self.min_replay_size:
             return
 
-        batch_size = min(self.batch_size, len(self.replay_memory))
+        batch_size = min(self.batch_size, len(self.replay_memory)//3)
         mini_batch = random.sample(self.replay_memory, batch_size)
 
         current_states = np.zeros((batch_size, self.state_shape[0]))
         next_states = np.zeros((batch_size, self.state_shape[0]))
-        action, reward, done = [], [], []
+        action, reward, next_reward, done = [], [], [], []
         
         for i in range(batch_size):
             current_states[i] = mini_batch[i][0]
             action.append(mini_batch[i][1])
             reward.append(mini_batch[i][2])
             next_states[i] = mini_batch[i][3]
+            next_reward.append(self.get_reward(next_states[i],0))
             done.append(mini_batch[i][4])
 
         current_Qs_main = self.model.predict(current_states)
@@ -302,7 +358,30 @@ class Agent():
                 # Q trenutnega stanja za akcijo, ki smo jo naredili (Q(s,a)), popravimo na 
                 # (reward trenutnega stanja) + gamma * max_{a}(Q_target(s',a))
                 current_Qs_main[i][action_made_ind] = reward[i] + self.discount_factor * (next_Qs_target[i][action_ind])
-        self.model.fit(current_states, current_Qs_main, batch_size=self.batch_size, epochs=1, verbose=0)
+                #t = 1000*(next_reward[i] - reward[i])
+                #current_Qs_main[i] = [-t for _ in range(len(self.actions))]
+                #current_Qs_main[i][action_made_ind] = t
+        self.model.fit(current_states, current_Qs_main, batch_size=self.batch_size, epochs=2, verbose=0)
+        #self.do_epochs(current_states, current_Qs_main, epochs=3)
+
+    def loss(self, y, y_predicted):
+        print(y,y_predicted)
+        return (y - y_predicted)**2
+
+    def do_epochs(self, X, Y, epochs=1):
+        for x, y in zip(X,Y):
+            with tf.GradientTape() as tape:
+                # Forward pass.
+                logits = self.model(np.array(x,))#.predict(np.array((x,))).flatten()
+                # Loss value for this batch.
+                loss_value = self.loss(y, logits)
+
+            # Get gradients of loss wrt the weights.
+            gradients = tape.gradient(loss_value, self.model.trainable_weights)
+
+            # Update the weights of the model.
+            self.optimizer.apply_gradients(zip(gradients, self.model.trainable_weights))
+
 
 
     def init_model(self):
@@ -311,9 +390,10 @@ class Agent():
         The highest value 0.7 is the Q-Value.
         The index of the highest action (0.7) is action #1.
         """
-        learning_rate = 0.005
-        init = tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.01, seed=RANDOM_SEED)
-        inputs = keras.layers.Input(shape=self.state_shape)
+        #learning_rate = 0.0005
+        model = keras.Sequential()
+        init = tf.keras.initializers.RandomNormal(mean=0, stddev=0.05, seed=RANDOM_SEED)
+        #inputs = keras.layers.Input(shape=self.state_shape)
 
         # Convolutions on the frames on the screen
         #layer1 = keras.layers.Conv2D(32, 8, strides=4, activation="relu")(inputs)
@@ -321,13 +401,23 @@ class Agent():
         #layer3 = keras.layers.Conv2D(64, 3, strides=1, activation="relu")(layer2)
 
         #layer4 = keras.layers.Flatten()(layer3)
+        layer0 = keras.layers.Dense(self.state_shape[0], activation="relu", kernel_initializer=init)
+        layer1 = keras.layers.Dense(self.state_shape[0]*16, activation="relu", kernel_initializer=init)
+        layer2 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
+        layer3 = keras.layers.Dense(self.state_shape[0]*4, activation="relu", kernel_initializer=init)
+        action = keras.layers.Dense(len(self.actions), activation="linear")
 
-        layer1 = keras.layers.Dense(30, activation="linear", kernel_initializer=init)(inputs)
-        layer2 = keras.layers.Dense(8, activation="linear", kernel_initializer=init)(layer1)
-        layer3 = keras.layers.Dense(20, activation="linear", kernel_initializer=init)(layer2)
-        action = keras.layers.Dense(len(self.actions), activation="linear")(layer3)
-        model = keras.Model(inputs=inputs, outputs=action)
-        model.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(lr=learning_rate), metrics=['mae'])
+        model.add(layer0)
+        model.add(layer1)
+        model.add(layer2)
+        model.add(layer3)
+        model.add(action)
+        #layer1 = keras.layers.Dense(12, activation="relu", kernel_initializer=init)(inputs)
+        #layer2 = keras.layers.Dense(8, activation="relu", kernel_initializer=init)(layer1)
+        #layer3 = keras.layers.Dense(20, activation="linear", kernel_initializer=init)(layer2)
+        #action = keras.layers.Dense(len(self.actions), activation="linear")(layer2)
+        #model = keras.Model(inputs=inputs, outputs=action)
+        model.compile(loss=self.loss, optimizer=self.optimizer, metrics=['accuracy'])
         return model
         '''
         learning_rate = 0.001
@@ -358,23 +448,30 @@ class Agent():
 
     # 300, 400
     def get_reward(self, state, checkpoint_dif):
-        distance, angle, distance_n, angle_n, speed = state
+        #distance, angle, distance_n, angle_n, speed = state#, wrong_way = state
+        distance, angle = state
         reward_distance = self.get_reward_distance(distance)
         reward_angle = self.get_reward_angle(angle)
 
-        
+        '''
         if distance_n < 5*TOL_CHECKPOINT:
             reward_distance_n = self.get_reward_distance(distance_n)
             reward_angle_n = self.get_reward_angle(angle_n)
         else:
             reward_distance_n, reward_angle_n = 0, 0
+        '''
 
+        #penalty_wrong_way = -2 if wrong_way else 0
         reward_checkpoint = TOL_CHECKPOINT*checkpoint_dif
-        reward = reward_angle + reward_distance + reward_angle_n/2 + reward_distance_n/2 + reward_checkpoint
+        reward = reward_angle + reward_distance + reward_checkpoint# + reward_angle_n/2 + reward_distance_n/2 #+ penalty_wrong_way#+ reward_checkpoint
         #reward = reward_distance + (180 - abs(angle))/180
         #reward = 1
         #print("angle, reward_angle:", round(angle,2),",", round(reward_angle,2))
         #print("state:", list(map(lambda x : round(x,2), state)), ", ch_dif:",checkpoint_dif, end=", ")
         #print("stRew:", list(map(lambda x : round(x,2), [reward_distance, reward_angle, reward_angle_x_distance, reward_checkpoint])))
         #print("reward:",round(reward,4))
+        if reward > self.max_reward:
+            self.max_reward = reward
+            self.max_state = state
+            print(state,":",round(reward,2))
         return reward
