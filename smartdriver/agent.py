@@ -20,7 +20,7 @@ class Agent():
         self.player_sprite = player_sprite
         self.state_shape = state_shape
 
-        self.min_replay_size = 400
+        self.min_replay_size = 100
         self.max_replay_size = 50*self.min_replay_size
         self.replay_memory = deque(maxlen=self.max_replay_size)
         self.finished = False
@@ -49,14 +49,15 @@ class Agent():
                             #decay_steps=10000,
                             #decay_rate=0.9)
         self.optimizer = keras.optimizers.Adam(learning_rate=0.0001)
+        self.loss = keras.losses.Huber()
         self.model = self.init_model()
         self.target_model = self.init_model()
-        self.test()
-        if weights:
+        #self.test()
+        '''if weights:
             self.model.set_weights(weights)
         else:
             self.initial_train()
-            self.test()
+            self.test()'''
         self.update_target_model()
 
         
@@ -175,36 +176,21 @@ class Agent():
         # 2. Explore using the Epsilon Greedy Exploration Strategy
         if random_number <= self.epsilon or self.train_iteration < self.min_replay_size:
             # Explore
-            #if (random_number <= ALPHA and self.epsilon > ALPHA/2):
-            #    action = self.player_sprite.angle_heuristic()
-            #    heuristic_choice = True if action else False
-            #if not heuristic_choice:
             action = np.random.choice(self.actions)
             random_choice = True
-            #print("RR:", round(self.player_sprite.get_angle_dif(),1), action)
         else:
             # Exploit best known action
             encoded_reshaped = np.array((self.player_sprite.get_current_state(),))
             predicted = self.model.predict(encoded_reshaped).flatten()
 
             # odločimo se, kaj bo naslednja poteza
-            
-            if abs(predicted[0] - predicted[1]) / np.max(predicted) > 0.02:
-                action = self.actions[np.argmax(predicted)]
-                if state[1] > 0 and action == "R":
-                    print("predict:", predicted, state, action)
-                elif state[1] < 0 and action == "L":
-                    print("predict:", predicted, state, action)
-                predicted_choice = True
-            else:
-                action = np.random.choice(self.actions)
-                random_choice = True
+            action = self.actions[np.argmax(predicted)]
+            predicted_choice = True
+
             #print("--:", round(self.player_sprite.get_angle_dif(),1), action)
             #print("predicted:", list(map(lambda x : round(x,2), predicted)))
             #print("action:", action)
         
-        
-
         if predicted_choice:
             self.predicted_actions[self.get_action_ind(action)] += 1
         if random_choice:
@@ -219,29 +205,17 @@ class Agent():
         # za novo stanje izračunamo nagrado
         if not self.finished:
 
-            #if np.random.random() < 0.1:
-            #    new_state = self.player_sprite.get_current_state()
-            #    new_checkpoint = self.player_sprite.next_checkpoint
-            #    print(state, self.get_reward(state, new_checkpoint-checkpoint))
-
             new_state = self.player_sprite.get_current_state()
             new_checkpoint = self.player_sprite.next_checkpoint
             reward = self.get_reward(new_state, new_checkpoint-checkpoint)
 
-            #print(f"state: {state} action: {action} reward: {reward}, new_state: {new_state} is_prediction {is_prediction}")
-            #print(f"action: {action}, reward: {round(reward,4)}, is_prediction: {is_prediction}")
-
-            if reward > 0:
-                #print(state, self.get_reward(state, new_checkpoint-checkpoint))
-                # v spomin dodamo (stanje, premik, nagrada, novo_stanje, končal)
-                self.replay_memory.append([state, action, reward, new_state, self.finished])
+            # v spomin dodamo (stanje, premik, nagrada, novo_stanje, končal)
+            self.replay_memory.append([state, action, reward, new_state, self.finished])
 
             # 3. Update the Main Network using the Bellman Equation
             if self.train_iteration % self.main_update_period == 0 or self.finished:
-                #old_weights = np.array(self.model.get_weights())
-                self.train_main_model()#replay_memory, self.finished)
-                #new_weights = np.array(self.model.get_weights())
-                #print(old_weights-new_weights)
+                self.train_main_model()
+
             self.state = new_state
             self.total_training_rewards += reward
 
@@ -251,15 +225,7 @@ class Agent():
             self.episode += 1
 
             # naredimo reset 
-            self.player_sprite.next_checkpoint = 1
-            self.player_sprite.track.next_checkpoint = 1
-            self.player_sprite.center_x = self.player_sprite.track.checkpoints[0][0]
-            self.player_sprite.center_y = self.player_sprite.track.checkpoints[0][1]
-            self.player_sprite.accelerating = False
-            self.player_sprite.braking = False
-            self.player_sprite.speed = 0
-            self.player_sprite.angle = 0
-            self.player_sprite.change_angle = 0
+            self.reset_player()
 
         if self.train_iteration % self.target_update_period == 0:
             self.update_target_model()
@@ -277,6 +243,87 @@ class Agent():
 
         #print("Train iteration: ", self.train_iteration)                    
         self.train_iteration += 1
+
+    
+    def train_main_model(self):
+        # vir: https://theaisummer.com/Taking_Deep_Q_Networks_a_step_further/
+        if len(self.replay_memory) < self.min_replay_size:
+            return
+
+        batch_size = min(self.batch_size, len(self.replay_memory)//3)
+        mini_batch = random.sample(self.replay_memory, batch_size)
+
+        current_states = np.zeros((batch_size, self.state_shape[0]))
+        next_states = np.zeros((batch_size, self.state_shape[0]))
+        actions, rewards, next_reward, done = [], [], [], []
+        
+        for i in range(batch_size):
+            current_states[i] = mini_batch[i][0]
+            actions.append(mini_batch[i][1])
+            rewards.append(mini_batch[i][2])
+            next_states[i] = mini_batch[i][3]
+            next_reward.append(self.get_reward(next_states[i],0))
+            done.append(mini_batch[i][4])
+
+        current_Qs_main = self.model.predict(current_states)
+        
+        next_Qs_main = self.model.predict(next_states) #DQN
+        next_Qs_target = self.target_model.predict(next_states) #Target model
+
+        updated_q_values = np.array(rewards) + self.discount_factor * np.amax(next_Qs_target, axis=1)
+
+        '''
+        for i in range(self.batch_size):
+            if done[i]:
+                current_Qs_main[i][action[i]] = reward[i]
+            else:
+                # selection of action is from model
+                # update is from target model
+
+                action_ind = np.argmax(next_Qs_main[i])
+                action_made_ind = self.get_action_ind(action[i])[0][0]
+                
+                # Q trenutnega stanja za akcijo, ki smo jo naredili (Q(s,a)), popravimo na 
+                # (reward trenutnega stanja) + gamma * max_{a}(Q_target(s',a))
+                new_current_Qs_main[i][action_made_ind] = reward[i] + self.discount_factor * (next_Qs_target[i][action_ind])
+        '''
+        actions_made_ind = [self.get_action_ind(actions[i])[0][0] for i in range(self.batch_size)]
+
+        with tf.GradientTape() as tape:
+            q_values = self.model(current_states, training=True)
+            
+            q_actions = tf.convert_to_tensor(q_values.numpy()[range(len(q_values)),actions_made_ind])
+            
+            loss = self.loss(updated_q_values, q_actions)
+            tape.watch(loss)
+            #print("watched:",tape.watched_variables())
+            #print("loss:",loss)
+        
+        grads = tape.gradient(loss, list(self.model.trainable_variables))
+
+        print("watched:",type(tape.watched_variables()))
+        print("thesame:", list(tape.watched_variables()) == self.model.trainable_variables)
+        print("trainable:", type(self.model.trainable_weights))
+        print("loss:",loss)
+            
+        print("grads:",grads)
+        #print("trainable vars:", self.model.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
+        #self.model.fit(current_states, current_Qs_main, batch_size=self.batch_size, epochs=2, verbose=0)
+        #self.do_epochs(current_states, current_Qs_main, epochs=3)
+
+
+
+    def reset_player(self):
+        self.player_sprite.next_checkpoint = 1
+        self.player_sprite.track.next_checkpoint = 1
+        self.player_sprite.center_x = self.player_sprite.track.checkpoints[0][0]
+        self.player_sprite.center_y = self.player_sprite.track.checkpoints[0][1]
+        self.player_sprite.accelerating = False
+        self.player_sprite.braking = False
+        self.player_sprite.speed = 0
+        self.player_sprite.angle = 0
+        self.player_sprite.change_angle = 0
     
     def update_target_model(self):
         print('Copying main network weights to the target network weights')
@@ -333,54 +380,12 @@ class Agent():
         self.model.fit(np.array(X), np.array(Y), batch_size=batch_size, verbose=0, shuffle=True)
 
 
-    def train_main_model(self):
-        # vir: https://theaisummer.com/Taking_Deep_Q_Networks_a_step_further/
-        if len(self.replay_memory) < self.min_replay_size:
-            return
-
-        batch_size = min(self.batch_size, len(self.replay_memory)//3)
-        mini_batch = random.sample(self.replay_memory, batch_size)
-
-        current_states = np.zeros((batch_size, self.state_shape[0]))
-        next_states = np.zeros((batch_size, self.state_shape[0]))
-        action, reward, next_reward, done = [], [], [], []
-        
-        for i in range(batch_size):
-            current_states[i] = mini_batch[i][0]
-            action.append(mini_batch[i][1])
-            reward.append(mini_batch[i][2])
-            next_states[i] = mini_batch[i][3]
-            next_reward.append(self.get_reward(next_states[i],0))
-            done.append(mini_batch[i][4])
-
-        current_Qs_main = self.model.predict(current_states)
-        next_Qs_main = self.model.predict(next_states) #DQN
-        next_Qs_target = self.target_model.predict(next_states) #Target model
-
-        for i in range(self.batch_size):
-            if done[i]:
-                current_Qs_main[i][action[i]] = reward[i]
-            else:
-                # selection of action is from model
-                # update is from target model
-                action_ind = np.argmax(next_Qs_main[i])
-                #print(action[i], self.get_action_ind(action[i]))
-                action_made_ind = self.get_action_ind(action[i])[0][0]
-                #print("a:",i, action[i], action_ind, action_made_ind)
-
-                # Q trenutnega stanja za akcijo, ki smo jo naredili (Q(s,a)), popravimo na 
-                # (reward trenutnega stanja) + gamma * max_{a}(Q_target(s',a))
-                current_Qs_main[i][action_made_ind] = reward[i] + self.discount_factor * (next_Qs_target[i][action_ind])
-                #t = 1000*(next_reward[i] - reward[i])
-                #current_Qs_main[i] = [-t for _ in range(len(self.actions))]
-                #current_Qs_main[i][action_made_ind] = t
-        self.model.fit(current_states, current_Qs_main, batch_size=self.batch_size, epochs=2, verbose=0)
-        #self.do_epochs(current_states, current_Qs_main, epochs=3)
-
+    '''
     def loss(self, y, y_predicted):
-        
-        print(y,y_predicted)
-        return (y - y_predicted)**2
+        return keras.losses.Huber(y, y_predicted)
+        #print(y,y_predicted)
+        #return (y - y_predicted)**2
+    '''
 
     def do_epochs(self, X, Y, epochs=1):
         for x, y in zip(X,Y):
@@ -405,9 +410,9 @@ class Agent():
         The index of the highest action (0.7) is action #1.
         """
         #learning_rate = 0.0005
-        model = keras.Sequential()
+        #model = keras.Sequential()
         init = tf.keras.initializers.RandomNormal(mean=0, stddev=0.05, seed=RANDOM_SEED)
-        #inputs = keras.layers.Input(shape=self.state_shape)
+        inputs = keras.layers.Input(shape=self.state_shape)
 
         # Convolutions on the frames on the screen
         #layer1 = keras.layers.Conv2D(32, 8, strides=4, activation="relu")(inputs)
@@ -415,24 +420,25 @@ class Agent():
         #layer3 = keras.layers.Conv2D(64, 3, strides=1, activation="relu")(layer2)
 
         #layer4 = keras.layers.Flatten()(layer3)
-        layer0 = keras.layers.Dense(self.state_shape[0], activation="linear", kernel_initializer=init)
-        layer1 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
-        layer2 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
-        layer3 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
-        action = keras.layers.Dense(len(self.actions), activation="linear")
+        layer0 = keras.layers.Dense(self.state_shape[0], activation="linear", kernel_initializer=init)(inputs)
+        #layer1 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
+        #layer2 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
+        layer3 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)(layer0)
+        action = keras.layers.Dense(len(self.actions), activation="linear")(layer3)
 
-        model.add(layer0)
-        model.add(layer1)
-        model.add(layer2)
+        '''model.add(layer0)
+        #model.add(layer1)
+        #model.add(layer2)
         model.add(layer3)
-        model.add(action)
+        model.add(action)'''
         #layer1 = keras.layers.Dense(12, activation="relu", kernel_initializer=init)(inputs)
         #layer2 = keras.layers.Dense(8, activation="relu", kernel_initializer=init)(layer1)
         #layer3 = keras.layers.Dense(20, activation="linear", kernel_initializer=init)(layer2)
         #action = keras.layers.Dense(len(self.actions), activation="linear")(layer2)
         #model = keras.Model(inputs=inputs, outputs=action)
-        model.compile(loss=keras.losses.Huber(), optimizer=self.optimizer, metrics=[keras.losses.Huber()])
-        return model
+        #model.compile(loss=keras.losses.Huber(), optimizer=self.optimizer, metrics=[keras.losses.Huber()])
+
+        return keras.Model(inputs=inputs, outputs=action)
         '''
         learning_rate = 0.001
         init = tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.05, seed=RANDOM_SEED)
