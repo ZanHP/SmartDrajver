@@ -34,8 +34,8 @@ class Agent():
         self.decay = 0.4
         self.episode = 1
 
-        self.learning_rate = 0.1 # Learning rate
-        self.discount_factor = 0.7
+        self.learning_rate = 0.05 # Learning rate
+        self.discount_factor = 0.99
 
 
         self.max_reward = 0
@@ -72,7 +72,8 @@ class Agent():
                 state = [distance,angle]
                 Ds.append(distance)
                 As.append(angle)
-                r = self.get_reward(state,0)
+                #r = self.get_reward(state,0)
+                r = 5
                 #if r > max_r:
                 #    max_r = r
                 if len(Qs) % 1000 == 0:
@@ -190,7 +191,10 @@ class Agent():
             
             if abs(predicted[0] - predicted[1]) / np.max(predicted) > 0.02:
                 action = self.actions[np.argmax(predicted)]
-                print("predict:", predicted, state, action)
+                if state[1] > 0 and action == "R":
+                    print("predict:", predicted, state, action)
+                elif state[1] < 0 and action == "L":
+                    print("predict:", predicted, state, action)
                 predicted_choice = True
             else:
                 action = np.random.choice(self.actions)
@@ -198,7 +202,8 @@ class Agent():
             #print("--:", round(self.player_sprite.get_angle_dif(),1), action)
             #print("predicted:", list(map(lambda x : round(x,2), predicted)))
             #print("action:", action)
-            
+        
+        
 
         if predicted_choice:
             self.predicted_actions[self.get_action_ind(action)] += 1
@@ -213,6 +218,12 @@ class Agent():
 
         # za novo stanje izračunamo nagrado
         if not self.finished:
+
+            #if np.random.random() < 0.1:
+            #    new_state = self.player_sprite.get_current_state()
+            #    new_checkpoint = self.player_sprite.next_checkpoint
+            #    print(state, self.get_reward(state, new_checkpoint-checkpoint))
+
             new_state = self.player_sprite.get_current_state()
             new_checkpoint = self.player_sprite.next_checkpoint
             reward = self.get_reward(new_state, new_checkpoint-checkpoint)
@@ -220,8 +231,10 @@ class Agent():
             #print(f"state: {state} action: {action} reward: {reward}, new_state: {new_state} is_prediction {is_prediction}")
             #print(f"action: {action}, reward: {round(reward,4)}, is_prediction: {is_prediction}")
 
-            # v spomin dodamo (stanje, premik, nagrada, novo_stanje, končal)
-            self.replay_memory.append([state, action, reward, new_state, self.finished])
+            if reward > 0:
+                #print(state, self.get_reward(state, new_checkpoint-checkpoint))
+                # v spomin dodamo (stanje, premik, nagrada, novo_stanje, končal)
+                self.replay_memory.append([state, action, reward, new_state, self.finished])
 
             # 3. Update the Main Network using the Bellman Equation
             if self.train_iteration % self.main_update_period == 0 or self.finished:
@@ -365,6 +378,7 @@ class Agent():
         #self.do_epochs(current_states, current_Qs_main, epochs=3)
 
     def loss(self, y, y_predicted):
+        
         print(y,y_predicted)
         return (y - y_predicted)**2
 
@@ -401,10 +415,10 @@ class Agent():
         #layer3 = keras.layers.Conv2D(64, 3, strides=1, activation="relu")(layer2)
 
         #layer4 = keras.layers.Flatten()(layer3)
-        layer0 = keras.layers.Dense(self.state_shape[0], activation="relu", kernel_initializer=init)
-        layer1 = keras.layers.Dense(self.state_shape[0]*16, activation="relu", kernel_initializer=init)
+        layer0 = keras.layers.Dense(self.state_shape[0], activation="linear", kernel_initializer=init)
+        layer1 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
         layer2 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
-        layer3 = keras.layers.Dense(self.state_shape[0]*4, activation="relu", kernel_initializer=init)
+        layer3 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
         action = keras.layers.Dense(len(self.actions), activation="linear")
 
         model.add(layer0)
@@ -417,7 +431,7 @@ class Agent():
         #layer3 = keras.layers.Dense(20, activation="linear", kernel_initializer=init)(layer2)
         #action = keras.layers.Dense(len(self.actions), activation="linear")(layer2)
         #model = keras.Model(inputs=inputs, outputs=action)
-        model.compile(loss=self.loss, optimizer=self.optimizer, metrics=['accuracy'])
+        model.compile(loss=keras.losses.Huber(), optimizer=self.optimizer, metrics=[keras.losses.Huber()])
         return model
         '''
         learning_rate = 0.001
@@ -474,4 +488,5 @@ class Agent():
             self.max_reward = reward
             self.max_state = state
             print(state,":",round(reward,2))
-        return reward
+        reward_distance = 1 if distance < 3*TOL_CHECKPOINT else 0
+        return reward_checkpoint + reward_distance
