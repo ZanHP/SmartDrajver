@@ -138,8 +138,8 @@ class Player(arcade.Sprite):
         angle_dif_to_next_checkpoint = (self.angle_of_checkpoint() - self.angle + 180) % 360 - 180
         angle_dif_to_nn_checkpoint = (self.angle_of_checkpoint(plus_one=1) - self.angle + 180) % 360 - 180
         #print("angle_dif_to_next_checkpoint:", angle_dif_to_next_checkpoint)
-        #return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint, self.distance_to_next_checkpoint(plus_one=1), angle_dif_to_nn_checkpoint, self.speed
-        return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint
+        return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint, self.distance_to_next_checkpoint(plus_one=1), angle_dif_to_nn_checkpoint, self.speed
+        #return self.distance_to_next_checkpoint(), angle_dif_to_next_checkpoint
 
     def distance_to_nn_checkpoint(self):
         x, y = self.center_x, self.center_y
@@ -239,7 +239,7 @@ class Player(arcade.Sprite):
         else:
             if action:
                 self.do_action(action)
-            self.on_press_key_up()
+            # self.on_press_key_up()
             '''
             elif d > 2*TOL_CHECKPOINT:
                     self.on_release_key_down()
@@ -271,6 +271,7 @@ class Player(arcade.Sprite):
         return action
 
     def get_action(self):
+        return self.get_dual_action(self)
         up_down = ""
         if self.accelerating:
             up_down =  "U"
@@ -288,9 +289,30 @@ class Player(arcade.Sprite):
             left_right = "Ll"
         
         return left_right
+    
+    def get_dual_action(self):
+        up_down = ""
+        if self.accelerating:
+            up_down =  "U"
+        elif self.braking:
+            up_down = "D"
+        
+        left_right = ""
+        if self.change_angle == -ANGLE_SPEED:
+            left_right = "R"
+        elif self.change_angle == -ANGLE_SPEED/2:
+            left_right = "Rl"
+        elif self.change_angle == ANGLE_SPEED:
+            left_right = "L"
+        elif self.change_angle == ANGLE_SPEED/2:
+            left_right = "Ll"
+        
+        return up_down + left_right
 
     def do_action(self, action):
         #self.on_press_key_up()
+        self.do_dual_action(action)
+        return
         if action == "R":
             self.on_press_key_right()
         elif action == "Rl":
@@ -310,7 +332,24 @@ class Player(arcade.Sprite):
             self.on_release_key_left()
             self.on_release_key_right()
             #self.on_release_key_up()
+
+    def do_dual_action(self, action):
+        #self.on_press_key_up()
+        if "R" in action:
+            self.on_press_key_right()
+
+        elif "L" in action:
+            self.on_press_key_left()    
+               
+     
+        if "D" in action:
+            self.on_release_key_up()
+            self.on_press_key_down()
+        elif "U" in action:
+            self.on_release_key_down()
+            self.on_press_key_up()
         
+
     def on_press_key_up(self):
         self.accelerating = True
 

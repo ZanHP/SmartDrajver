@@ -22,7 +22,7 @@ min_epsilon = 0.01 # At a minimum, we'll always explore 1% of the time
 class GeneticAgent():
     def __init__(self, state_shape, TRACK=None, smart=None):
         #self.actions = np.array(["L", "R", ""])#, "U", "D"])
-        self.actions = np.array(["L","", "R"])#, "U", "D"])
+        self.actions = np.array(["UL","UR", "DR", "DL", "D", "U", "L", "R"])#, "U", "D"])
         self.state_shape = state_shape
 
         self.finished = False
@@ -190,5 +190,6 @@ class GeneticAgent():
             return (- player_sprite.finish_time) + 3000
         else:
             return (- (self.max_time_steps +  player_sprite.distance_to_finish())) + 3000
+
 
 
