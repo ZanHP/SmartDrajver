@@ -166,7 +166,7 @@ class GeneticGame(arcade.Window):
     Main application class.
     """
 
-    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=True, show=True, verbose=False, train=False):
+    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=True, show=True, verbose=False, train=False, start_gen=None):
 
         self.show = show
         self.num_steps_made = 0
@@ -185,6 +185,7 @@ class GeneticGame(arcade.Window):
 
         # weird set attribute error, this solves it
         self.conf = {}
+        self.start_gen = start_gen
 
         # ce zelis pogledati simulacijo
         #dbfile = open('smartdriver/best.pkl', 'rb')     
@@ -213,7 +214,7 @@ class GeneticGame(arcade.Window):
         self.num_players = 2
         self.track = Track(TRACK1)
                 
-        self.agent = GeneticAgent( (state_shape,), TRACK1, self.smart)
+        self.agent = GeneticAgent( (state_shape,), TRACK1, self.smart, start_gen=self.start_gen)
 
         self.train_iteration = 0
 

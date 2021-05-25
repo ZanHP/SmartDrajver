@@ -13,6 +13,7 @@ from smartdriver.player import Player
 
 
 from smartdriver.population import Population as SmartPopulation
+from smartdriver.checkpoint import Checkpointer as SmartCheckpointer
 
 epsilon = 1 # Epsilon-greedy algorithm in initialized at 1 meaning every step is random at the start
 max_epsilon = 1 # You can't explore more than 100% of the time
@@ -20,7 +21,7 @@ min_epsilon = 0.01 # At a minimum, we'll always explore 1% of the time
 
 
 class GeneticAgent():
-    def __init__(self, state_shape, TRACK=None, smart=None):
+    def __init__(self, state_shape, TRACK=None, smart=None, start_gen=None):
         #self.actions = np.array(["L", "R", ""])#, "U", "D"])
         self.actions = np.array(["UL","UR", "DR", "DL", "D", "U", "L", "R"])#, "U", "D"])
         self.state_shape = state_shape
@@ -31,22 +32,35 @@ class GeneticAgent():
         self.TRACK = TRACK
         self.smart = smart
 
-        self.max_time_steps = 60 * 15
+        self.max_time_steps = 60 * 13
 
         self.gen = 1
         self.max_gen = 100
         self.player_sprites = SpriteList()
+
+        self.filename = 'gen-res.txt'
+        self.filewriter = open(self.filename,'w')
+
+        self.start_gen = start_gen
+        if start_gen:
+            self.gen = start_gen
 
         local_dir = os.path.dirname(__file__)
         config_path = os.path.join(local_dir, "config")
 
         config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
 
-        p = SmartPopulation(config)
+        if start_gen:
+            p = SmartCheckpointer.restore_checkpoint(f'neat-checkpoint-{start_gen-1}')
+        else:
+            p = SmartPopulation(config)
 
         p.add_reporter(neat.StdOutReporter(True))
         stats = neat.StatisticsReporter()
         p.add_reporter(stats)
+        p.add_reporter(SmartCheckpointer(10))
+
+        
 
         p.start_generation(self.max_gen)
         genomes, config = p.get_genomes_and_config()
@@ -72,6 +86,16 @@ class GeneticAgent():
                 max_val = g.fitness
 
         return max_val
+    
+    def lowest_time(self):
+
+        # this could be better sigh
+        min_val = None
+        for player in self.player_sprites:
+            if player.finished:
+                if min_val is None or player.finish_time < min_val:
+                    min_val = player.finish_time
+        return min_val
 
     def create_players(self, number):
         self.player_sprites = SpriteList()
@@ -132,6 +156,16 @@ class GeneticAgent():
             self.do_summary_fitness_scores()
             print(self.max_fitness_score())
 
+
+            max_fitness = self.max_fitness_score()
+            min_time = self.lowest_time()
+            min_time = 0 if min_time is None else min_time
+            write_string = f"{max_fitness}, {min_time}\n"
+            self.filewriter.write(write_string)
+            self.filewriter.close()
+            self.filewriter = open(self.filename,'a')
+        
+
             self.p.evaluate()
             self.p.start_generation(self.max_gen)
             genomes, config = self.p.get_genomes_and_config()
@@ -186,10 +220,12 @@ class GeneticAgent():
 
 
     def get_fitness_score(self, player_sprite):
+        max_val = 10_000
         if player_sprite.finished:
-            return (- player_sprite.finish_time) + 3000
+            return max_val - player_sprite.finish_time
         else:
-            return (- (self.max_time_steps +  player_sprite.distance_to_finish())) + 3000
+            penalty = self.max_time_steps +  player_sprite.distance_to_finish()
+            return max_val - penalty
 
 
 
