@@ -72,6 +72,9 @@ class MyGame(arcade.Window):
             self.agent = Agent(player_sprite, (state_shape,), weights)
             self.train_iteration = 0
 
+        else:
+            self.player_sprite = player_sprite
+
 
     def on_draw(self):
         arcade.start_render()
@@ -80,7 +83,10 @@ class MyGame(arcade.Window):
             arcade.draw_text("time: {}".format(self.num_steps_made), SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
             #self.sprite.draw()
             self.track.draw_track()
-            self.agent.player_sprite.draw()
+            if self.smart:
+                self.agent.player_sprite.draw()
+            else:
+                self.player_sprite.draw()
             arcade.draw_text("S:   toggle smart\nEsc: pause", SCREEN_WIDTH-200, 20, TRACK_COLOR_PASSED, font_size=14)
         else:
             arcade.draw_text("Learning", SCREEN_WIDTH//8, SCREEN_HEIGHT//8+20, TRACK_COLOR_PASSED, font_size=20, anchor_x="center")
@@ -93,7 +99,10 @@ class MyGame(arcade.Window):
         """ Movement and game logic """
         if not self.pause:
             self.num_steps_made += 1
-            if self.agent.player_sprite.smart:
+            if not self.smart:
+                if not self.player_sprite.update():
+                    self.pause = True
+            elif self.agent.player_sprite.smart:
                 if self.train:
                     self.agent.do_training_step()
                 else:
@@ -149,7 +158,7 @@ class MyGame(arcade.Window):
 
     def on_key_release(self, key, modifiers):
         """Called when the user releases a key. """
-        if not self.agent.player_sprite.smart:
+        if not self.smart:
             if key == arcade.key.UP:
                 self.player_sprite.on_release_key_up()
             if key == arcade.key.DOWN:

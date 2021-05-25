@@ -1,4 +1,5 @@
 import arcade
+from pyglet.window.key import F
 from smartdriver.constants import *
 from smartdriver.gui import MyGame
 import numpy as np
@@ -8,7 +9,7 @@ def main():
     """ Main method """
     np.random.seed(RANDOM_SEED)
     tf.random.set_seed(RANDOM_SEED) 
-    window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, smart=True, show=True, verbose=False, train=True)
+    window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, smart=False, show=True, verbose=False, train=False)
     window.setup()
     arcade.run()
 
