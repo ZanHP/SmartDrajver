@@ -220,7 +220,7 @@ class GeneticAgent():
 
 
     def get_fitness_score(self, player_sprite):
-        max_val = 10_000
+        max_val = 4_000
         if player_sprite.finished:
             return max_val - player_sprite.finish_time
         else:
