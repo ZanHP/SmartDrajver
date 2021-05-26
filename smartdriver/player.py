@@ -44,6 +44,8 @@ class Player(arcade.Sprite):
 
         # indeks checkpointov v track
         self.next_checkpoint = 1
+        self.time_from_last_checkpoint = 0
+        self.current_line_length = self.straightline_distance_between_checkpoints()
 
     def __repr__(self):
         return "smart: {}, up: {}, down: {}, right: {}, left: {}".format(self.smart, self.accelerating, self.braking, self.change_angle, self.change_angle)
@@ -56,12 +58,12 @@ class Player(arcade.Sprite):
     def print_self(self):          
         print('x: {}, y: {}, v: {}, a: {}, sa: {}'.format(*list(map(lambda x : round(x,2),[self.center_x, self.center_y, self.speed, self.angle, self.speed_angle]))))
 
-    def too_far_from_track(self):
-        d = self.track.distance_to_track([self.center_x, self.center_y], self.next_checkpoint-1)
-        if d > TOL_DISTANCE_TO_TRACK:
-            self.wrong_way = True
-        else:
-            self.wrong_way = False
+    def straightline_distance_between_checkpoints(self):
+        if self.next_checkpoint < len(self.track.checkpoints):
+            c1 = self.track.checkpoints[self.next_checkpoint-1]
+            c2 = self.track.checkpoints[self.next_checkpoint]
+            return np.sqrt((c1[0]-c2[0])**2 + (c1[1]-c2[1])**2)
+
 
     def update(self):
         # Naredi en časovni korak. Vrne True, če nismo na koncu proge, False, če smo in None, če je bilo narejenih že preveč korakov.
@@ -117,13 +119,19 @@ class Player(arcade.Sprite):
         if self.verbose:
             self.print_self()
 
-        #if self.show:
-        #    self.center_x = self.center_x_noShow
-        #    self.center_y = self.center_y_noShow
-
-        #if random.random() < 0.01:
-        #    self.checkpoint_reached()
-        if self.distance_to_next_checkpoint() < TOL_CHECKPOINT:
+        self.time_from_last_checkpoint += 1
+        if self.smart and self.time_from_last_checkpoint > self.current_line_length:
+            # če se predolgo obotavlja, ga damo na zadnji dosežen checkpoint
+            self.center_x = self.track.checkpoints[self.next_checkpoint-1][0]
+            self.center_y = self.track.checkpoints[self.next_checkpoint-1][1]
+            self.speed = 0
+            self.on_press_key_up()
+            self.change_angle = 0
+            iterations_to_remove = self.time_from_last_checkpoint
+            self.time_from_last_checkpoint = 0
+            self.angle = self.angle_of_checkpoint()    
+            return iterations_to_remove
+        elif self.distance_to_next_checkpoint() < TOL_CHECKPOINT:
             res =  self.checkpoint_reached()
             if not res:
                 self.has_recorded_run = True
@@ -147,9 +155,10 @@ class Player(arcade.Sprite):
         #print("self.angle:", self.angle)
         distance = self.distance_to_next_checkpoint()
         angle_dif_to_next_checkpoint = (self.angle_of_checkpoint() - self.angle + 180) % 360 - 180
+        distance_n = self.distance_to_next_checkpoint(plus_one=1)
         angle_dif_to_nn_checkpoint = (self.angle_of_checkpoint(plus_one=1) - self.angle + 180) % 360 - 180
         #print("angle_dif_to_next_checkpoint:", angle_dif_to_next_checkpoint)
-        return self.round_state([distance, angle_dif_to_next_checkpoint]) #, self.distance_to_next_checkpoint(plus_one=1), angle_dif_to_nn_checkpoint, self.speed
+        return distance, angle_dif_to_next_checkpoint, distance_n, angle_dif_to_nn_checkpoint, self.speed
     
     def distance_to_nn_checkpoint(self):
         x, y = self.center_x, self.center_y
@@ -173,8 +182,11 @@ class Player(arcade.Sprite):
     def checkpoint_reached(self):
         # True, če še nismo na koncu, False, če smo končali.
         self.next_checkpoint += 1
-        self.track.next_checkpoint =  self.next_checkpoint
+        print("curr line length:",self.current_line_length)
+        self.time_from_last_checkpoint = 0
+        self.track.next_checkpoint = self.next_checkpoint
         if self.next_checkpoint < len(self.track.checkpoints):
+            self.current_line_length = self.straightline_distance_between_checkpoints()
             return True
         else:
             return False

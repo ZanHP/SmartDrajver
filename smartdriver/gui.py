@@ -8,7 +8,7 @@ from smartdriver.player import Player
 from smartdriver.track import Track
 from smartdriver.agent import Agent
 
-state_shape = 2
+state_shape = 5
 action_shape = 3
 train_episodes = 300
 test_episodes = 100
@@ -152,8 +152,10 @@ class MyGame(arcade.Window):
 
             # Rotate left/right
             elif key == arcade.key.LEFT:
+                self.player_sprite.on_release_key_right()
                 self.player_sprite.on_press_key_left()
             elif key == arcade.key.RIGHT:
+                self.player_sprite.on_release_key_left()
                 self.player_sprite.on_press_key_right()
 
     def on_key_release(self, key, modifiers):
