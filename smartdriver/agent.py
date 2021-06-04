@@ -22,20 +22,21 @@ class Agent():
 
         self.min_replay_size = 400
         self.max_replay_size = 50*self.min_replay_size
-        self.replay_memory = deque(maxlen=self.max_replay_size)
+        self.replay_memory = [] #deque(maxlen=self.max_replay_size)
         self.finished = False
         self.total_training_rewards = 0
         
         self.train_iteration = 1
-        self.target_update_period = self.min_replay_size // 2
-        self.main_update_period = self.min_replay_size // 50
+        self.target_update_period = self.min_replay_size
+        self.main_update_period = self.min_replay_size // 20
 
         self.epsilon = 1
         self.decay = 0.4
         self.episode = 1
+        self.tries = 0
 
-        self.learning_rate = 0.05 # Learning rate
-        self.discount_factor = 0.99
+        self.learning_rate = 0.1 # Learning rate
+        self.discount_factor = 0.9
 
 
         self.max_reward = 0
@@ -52,11 +53,11 @@ class Agent():
         self.model = self.init_model()
         self.target_model = self.init_model()
         self.test()
-        if weights:
+        '''if weights:
             self.model.set_weights(weights)
         else:
             self.initial_train()
-            self.test()
+            self.test()'''
         self.update_target_model()
 
         
@@ -122,18 +123,20 @@ class Agent():
     def test(self):
         test_states = [[50,45], [50,20], [100,130], [100,90], [100,45], [500,90], [200,45], [500,10], [500,2], [100,-130], [50,-45], [50,-20], [100,-90], [100,-45], [500,-90], [200,-45], [500,-10], [500,-2]]
         #test_states = [self.player_sprite.round_state(state) for state in test_states]
-        #test_states = [[x[0],x[1],MAX_DISTANCE, 180, MAX_SPEED] for x in test_states]
+        test_states = [[x[0],x[1],2*x[0], 1.2*x[1], MAX_SPEED] for x in test_states]
         test_predict = np.array([self.model.predict((state,)).flatten() for state in test_states])
         test_predict_target = np.array([self.target_model.predict(np.array((state,))).flatten() for state in test_states])
         test_actions = np.array([self.actions[np.argmax(predicted)] for predicted in test_predict])
         test_actions_target = np.array([self.actions[np.argmax(predicted)] for predicted in test_predict_target])
         #test_predict = self.model.predict(test_states)
         print("\nTEST")
-        print(np.round(self.player_sprite.get_current_state(),decimals=2))
-        print(round(self.get_reward(self.player_sprite.get_current_state(),0),2))
+
+        print("state:", np.round(self.player_sprite.get_current_state(),decimals=2))
+        print("reward:", round(self.get_reward(self.player_sprite.get_current_state(),0),2))
+        print("\nmodel:")
         print(np.round(test_predict,decimals=2))
         
-        print("model:")
+        
         print(len(test_states))
         print(test_actions[:len(test_states)//2])
         print(test_actions[len(test_states)//2:])
@@ -192,9 +195,9 @@ class Agent():
             if abs(predicted[0] - predicted[1]) / np.max(predicted) > 0.02:
                 action = self.actions[np.argmax(predicted)]
                 if state[1] > 0 and action == "R":
-                    print("predict:", predicted, state, action)
+                    print("predict:", predicted, self.player_sprite.round_state(state), action)
                 elif state[1] < 0 and action == "L":
-                    print("predict:", predicted, state, action)
+                    print("predict:", predicted, self.player_sprite.round_state(state), action)
                 predicted_choice = True
             else:
                 action = np.random.choice(self.actions)
@@ -214,64 +217,88 @@ class Agent():
         
         # glede na izbrano potezo se premaknemo
         is_not_finished = self.player_sprite.next_move_and_update(action)
-        self.finished = not is_not_finished
 
-        # za novo stanje izračunamo nagrado
-        if not self.finished:
+        if type(is_not_finished) == int:
+            self.tries += 1
+            print("reseting player")
+            # če se je predolgo obotavljal, ta obotavljanja odstranimo iz učenja
+            print("is_not_finished:",is_not_finished)
+            print("replay_memory size:", len(self.replay_memory))
 
-            #if np.random.random() < 0.1:
-            #    new_state = self.player_sprite.get_current_state()
-            #    new_checkpoint = self.player_sprite.next_checkpoint
-            #    print(state, self.get_reward(state, new_checkpoint-checkpoint))
+            if self.tries < 16:
+                sample = random.sample(self.replay_memory[-is_not_finished:], is_not_finished//6)
+                self.replay_memory = self.replay_memory[:-is_not_finished]
+                self.replay_memory.extend(sample)
+                # in nastavimo model na target model, ker je bilo trenutno naučeno neumnost
+                self.model.set_weights(self.target_model.get_weights())
+            else:
+                self.tries = 0
+                self.epsilon = self.epsilon**0.5
+                print("povečujem epsilon:",self.epsilon)
 
-            new_state = self.player_sprite.get_current_state()
-            new_checkpoint = self.player_sprite.next_checkpoint
-            reward = self.get_reward(new_state, new_checkpoint-checkpoint)
+        else:
+            self.finished = not is_not_finished
 
-            #print(f"state: {state} action: {action} reward: {reward}, new_state: {new_state} is_prediction {is_prediction}")
-            #print(f"action: {action}, reward: {round(reward,4)}, is_prediction: {is_prediction}")
+            # za novo stanje izračunamo nagrado
+            if not self.finished:
 
-            if reward > 0:
-                #print(state, self.get_reward(state, new_checkpoint-checkpoint))
+                #if np.random.random() < 0.1:
+                #    new_state = self.player_sprite.get_current_state()
+                #    new_checkpoint = self.player_sprite.next_checkpoint
+                #    print(state, self.get_reward(state, new_checkpoint-checkpoint))
+
+                new_state = self.player_sprite.get_current_state()
+                new_checkpoint = self.player_sprite.next_checkpoint
+                reward = self.get_reward(new_state, new_checkpoint-checkpoint)
+
+                #print(f"state: {state} action: {action} reward: {reward}, new_state: {new_state} is_prediction {is_prediction}")
+                #print(f"action: {action}, reward: {round(reward,4)}, is_prediction: {is_prediction}")
+
                 # v spomin dodamo (stanje, premik, nagrada, novo_stanje, končal)
                 self.replay_memory.append([state, action, reward, new_state, self.finished])
 
-            # 3. Update the Main Network using the Bellman Equation
-            if self.train_iteration % self.main_update_period == 0 or self.finished:
-                #old_weights = np.array(self.model.get_weights())
-                self.train_main_model()#replay_memory, self.finished)
-                #new_weights = np.array(self.model.get_weights())
-                #print(old_weights-new_weights)
-            self.state = new_state
-            self.total_training_rewards += reward
+                # 3. Update the Main Network using the Bellman Equation
+                if self.train_iteration % self.main_update_period == 0 or self.finished:
+                    self.train_main_model()
 
-        else:
-            # player je prišel do konca kroga
-            print('Total training rewards: {} after n steps = {}.'.format(self.total_training_rewards, self.episode))
-            self.episode += 1
+                self.state = new_state
+                self.total_training_rewards += reward
+                
+                # target model posodobimo samo, če smo prišli do novega checkpointa
+                if new_checkpoint-checkpoint == 1:
+                    self.tries = 0
+                    print("chekpoint reached: updating target model")
+                    self.update_target_model()
+                
 
-            # naredimo reset 
-            self.player_sprite.next_checkpoint = 1
-            self.player_sprite.track.next_checkpoint = 1
-            self.player_sprite.center_x = self.player_sprite.track.checkpoints[0][0]
-            self.player_sprite.center_y = self.player_sprite.track.checkpoints[0][1]
-            self.player_sprite.accelerating = False
-            self.player_sprite.braking = False
-            self.player_sprite.speed = 0
-            self.player_sprite.angle = 0
-            self.player_sprite.change_angle = 0
+            else:
+                # player je prišel do konca kroga
+                print('Total training rewards: {} after n steps = {}.'.format(self.total_training_rewards, self.episode))
+                self.episode += 1
+                self.epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-self.decay * self.episode)
 
-        if self.train_iteration % self.target_update_period == 0:
-            self.update_target_model()
+                # naredimo reset 
+                self.player_sprite.next_checkpoint = 1
+                self.player_sprite.track.next_checkpoint = 1
+                self.player_sprite.center_x = self.player_sprite.track.checkpoints[0][0]
+                self.player_sprite.center_y = self.player_sprite.track.checkpoints[0][1]
+                self.player_sprite.accelerating = False
+                self.player_sprite.braking = False
+                self.player_sprite.speed = 0
+                self.player_sprite.angle = 0
+                self.player_sprite.change_angle = 0
+                
+
             
-        if len(self.replay_memory) > self.max_replay_size:
-            self.replay_memory = random.sample(self.replay_memory, self.min_replay_size)        
-        
-        
-        self.epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-self.decay * self.episode)
-        if self.train_iteration % 100 == 0:
-            print("epsilon:", round(self.epsilon,2))
-        
+                
+            if len(self.replay_memory) > self.max_replay_size:
+                self.replay_memory = random.sample(self.replay_memory, self.min_replay_size)        
+            
+            
+            
+            if self.train_iteration % 100 == 0:
+                print("epsilon:", round(self.epsilon,2))
+            
          
         
 
@@ -416,8 +443,8 @@ class Agent():
 
         #layer4 = keras.layers.Flatten()(layer3)
         layer0 = keras.layers.Dense(self.state_shape[0], activation="linear", kernel_initializer=init)
-        layer1 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
-        layer2 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
+        layer1 = keras.layers.Dense(self.state_shape[0]*32, activation="relu", kernel_initializer=init)
+        layer2 = keras.layers.Dense(self.state_shape[0]*16, activation="relu", kernel_initializer=init)
         layer3 = keras.layers.Dense(self.state_shape[0]*8, activation="relu", kernel_initializer=init)
         action = keras.layers.Dense(len(self.actions), activation="linear")
 
@@ -450,11 +477,13 @@ class Agent():
     def get_reward_distance(self, distance):
         if distance == MAX_DISTANCE:
             return 0
+        elif distance < TOL_CHECKPOINT:
+            return 1
         else:
             return np.exp(-(distance - TOL_CHECKPOINT)/100)
 
     def get_reward_angle(self, angle):
-        if angle == 180:
+        if abs(angle) == 180:
             return 0
         else:
             angle = 0 if abs(angle) < ANGLE_SPEED else angle
@@ -462,10 +491,12 @@ class Agent():
 
     # 300, 400
     def get_reward(self, state, checkpoint_dif):
-        #distance, angle, distance_n, angle_n, speed = state#, wrong_way = state
-        distance, angle = state
+        distance, angle, distance_n, angle_n, speed = state#, wrong_way = state
+        #distance, angle = state
         reward_distance = self.get_reward_distance(distance)
         reward_angle = self.get_reward_angle(angle)
+        reward_distance_n = self.get_reward_distance(distance_n)
+        reward_angle_n = self.get_reward_angle(angle_n)
 
         '''
         if distance_n < 5*TOL_CHECKPOINT:
@@ -476,17 +507,17 @@ class Agent():
         '''
 
         #penalty_wrong_way = -2 if wrong_way else 0
-        reward_checkpoint = TOL_CHECKPOINT*checkpoint_dif
-        reward = reward_angle + reward_distance + reward_checkpoint# + reward_angle_n/2 + reward_distance_n/2 #+ penalty_wrong_way#+ reward_checkpoint
+        reward_checkpoint = checkpoint_dif# * (self.player_sprite.current_line_length / self.player_sprite.time_from_last_checkpoint)
+        #reward = reward_angle + reward_distance + reward_checkpoint# + reward_angle_n/2 + reward_distance_n/2 + reward_checkpoint
         #reward = reward_distance + (180 - abs(angle))/180
         #reward = 1
         #print("angle, reward_angle:", round(angle,2),",", round(reward_angle,2))
         #print("state:", list(map(lambda x : round(x,2), state)), ", ch_dif:",checkpoint_dif, end=", ")
         #print("stRew:", list(map(lambda x : round(x,2), [reward_distance, reward_angle, reward_angle_x_distance, reward_checkpoint])))
         #print("reward:",round(reward,4))
-        if reward > self.max_reward:
-            self.max_reward = reward
-            self.max_state = state
-            print(state,":",round(reward,2))
-        reward_distance = 1 if distance < 3*TOL_CHECKPOINT else 0
-        return reward_checkpoint + reward_distance
+        #if reward > self.max_reward:
+        #    self.max_reward = reward
+        #    self.max_state = state
+        #    print(state,":",round(reward,2))
+        #reward_distance = 1 if distance < 3*TOL_CHECKPOINT else 0
+        return reward_checkpoint

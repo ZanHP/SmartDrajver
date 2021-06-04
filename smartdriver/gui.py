@@ -7,7 +7,9 @@ from smartdriver.constants import *
 from smartdriver.player import Player
 from smartdriver.track import Track
 from smartdriver.agent import Agent
-
+from smartdriver.geneticagent import GeneticAgent
+import neat
+import pyglet
 state_shape = 5
 action_shape = 3
 train_episodes = 300
@@ -48,8 +50,6 @@ class MyGame(arcade.Window):
         else:
             super().__init__(width//4, height//4, title, update_rate=update_rate)
             arcade.set_background_color(arcade.color.BLACK)
-            
-
     def setup(self):
         """ Set up the game and initialize the variables. """
 
@@ -97,6 +97,7 @@ class MyGame(arcade.Window):
 
     def on_update(self, delta_time=UPDATE_RATE):
         """ Movement and game logic """
+        self.set_update_rate(UPDATE_RATE)
         if not self.pause:
             self.num_steps_made += 1
             if not self.smart:
@@ -169,3 +170,137 @@ class MyGame(arcade.Window):
                 self.player_sprite.on_release_key_left()
             if key == arcade.key.RIGHT:
                 self.player_sprite.on_release_key_right()
+
+
+
+class GeneticGame(arcade.Window):
+    """
+    Main application class.
+    """
+
+    def __init__(self, width, height, title, update_rate = UPDATE_RATE, smart=True, show=True, verbose=False, train=False, start_gen=None):
+
+        self.show = show
+        self.num_steps_made = 0
+
+        self.player_list = None
+
+        self.smart = smart
+        self.train = train
+        
+        self.verbose = verbose
+
+        self.pause = False
+        self.finished = False
+
+        self.best_actions = []
+
+        # weird set attribute error, this solves it
+        self.conf = {}
+        self.start_gen = start_gen
+
+        # ce zelis pogledati simulacijo
+        #dbfile = open('smartdriver/best.pkl', 'rb')     
+        #self.best_actions, self.state_actions_dict = pickle.load(dbfile)      
+        
+
+        
+
+        
+
+        if self.show:
+            super().__init__(width, height, title, update_rate=update_rate)
+            file_path = os.path.dirname(os.path.abspath(__file__))
+            os.chdir(file_path)
+            arcade.set_background_color(arcade.color.BLACK)
+        else:
+            super().__init__(width//4, height//4, title, update_rate=update_rate)
+            arcade.set_background_color(arcade.color.BLACK)
+            
+    
+    def setup(self):
+        """ Set up the game and initialize the variables. """
+
+        self.player_list = arcade.SpriteList()
+
+        self.num_players = 2
+        self.track = Track(TRACK1)
+                
+        self.agent = GeneticAgent( (state_shape,), TRACK1, self.smart, start_gen=self.start_gen)
+
+        self.train_iteration = 0
+
+    def on_draw(self):
+        arcade.start_render()
+
+        if self.show:
+            arcade.draw_text("time: {} \n generation: {}".format(self.agent.time_step, self.agent.gen), SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
+
+            #self.sprite.draw()
+            #arcade.draw_text("time:", SCREEN_WIDTH-200, SCREEN_HEIGHT-30, TRACK_COLOR_PASSED, font_size=14)
+
+            self.track.draw_track()
+            self.agent.draw()
+            arcade.draw_text("S:   toggle smart\nEsc: pause", SCREEN_WIDTH-200, 20, TRACK_COLOR_PASSED, font_size=14)
+        else:
+            arcade.draw_text("Learning", SCREEN_WIDTH//8, SCREEN_HEIGHT//8+20, TRACK_COLOR_PASSED, font_size=20, anchor_x="center")
+            arcade.draw_text("time: {}".format(self.num_steps_made), 100, 30, TRACK_COLOR_PASSED, font_size=14)
+
+        if self.pause:
+            arcade.draw_text("PAUSED", SCREEN_WIDTH/2, SCREEN_HEIGHT/2+50, TRACK_COLOR_PASSED, font_size=50, anchor_x="center")
+
+    def on_update(self, delta_time=UPDATE_RATE):
+
+        """ Movement and game logic """
+        if not self.pause:
+            self.num_steps_made += 1
+            finished = self.agent.do_training_step()
+
+            if finished:
+                pass
+                #self.pause = True
+                #self.finished = True
+
+            
+    def on_key_press(self, key, modifiers):
+        """Called whenever a key is pressed. """
+        if key == arcade.key.ESCAPE:
+            self.pause = False if self.pause else True
+
+        if key == arcade.key.W:
+            weights = self.agent.target_model.get_weights()
+            filehandler = open('weights.pkl', 'wb') 
+            pickle.dump(weights, filehandler)
+
+        if key == arcade.key.R:
+            self.setup()
+
+            #self.player_sprite.recorded_actions = self.best_actions
+            #self.player_sprite.action_index = 0
+
+            self.num_steps_made = 0
+            self.pause = True
+            self.finished = False
+
+        if key == arcade.key.S:
+            pass
+            # self.smart = False if self.smart else True
+            # self.agent.player_sprite.smart = self.smart
+            # self.agent.player_sprite.on_release_key_up()
+            # self.agent.player_sprite.on_release_key_down()
+            # self.agent.player_sprite.on_release_key_left()
+            # self.agent.player_sprite.on_release_key_right()
+
+
+    def on_key_release(self, key, modifiers):
+        """Called when the user releases a key. """
+            #if not self.agent.player_sprite.smart:
+        pass
+            # if key == arcade.key.UP:
+            #     self.player_sprite.on_release_key_up()
+            # if key == arcade.key.DOWN:
+            #     self.player_sprite.on_release_key_down()
+            # if key == arcade.key.LEFT:
+            #     self.player_sprite.on_release_key_left()
+            # if key == arcade.key.RIGHT:
+            #     self.player_sprite.on_release_key_right()
